@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load inventory_extras %}
+{% block title %}{{ page_title }} · gimpo365-inventory{% endblock %}
+{% block content %}
+<h1>{{ page_title }}</h1>
+
+<div class="card">
+  <dl class="tx-detail">
+    <dt>거래일자</dt><dd>{{ tx.occurred_at|date:"Y-m-d" }}</dd>
+    <dt>거래유형</dt><dd>{{ tx.get_transaction_type_display }}</dd>
+    <dt>품목명</dt><dd>{{ tx.managed_item.item.name }}</dd>
+    <dt>부서</dt><dd>{{ tx.managed_item.department.name }}</dd>
+    <dt>증감</dt><dd>{% if tx.quantity_delta > 0 %}+{% endif %}{{ tx.quantity_delta|qty }} {{ tx.managed_item.get_unit_display }}</dd>
+    <dt>상태</dt><dd>{{ tx.get_status_display }}</dd>
+    <dt>입력자</dt><dd>{{ tx.created_by.display_name }}</dd>
+    {% if tx.expected_quantity is not None %}
+      <dt>시스템 기준 수량</dt><dd>{{ tx.expected_quantity|qty }}</dd>
+      <dt>실제 수량</dt><dd>{{ tx.actual_quantity|qty }}</dd>
+    {% endif %}
+  </dl>
+</div>
+
+<div class="card form-card">
+  <form method="post" action="{{ action_url }}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="form-actions">
+      <button type="submit">확인</button>
+      <a class="back-link" href="{% url 'inventory:dashboard' %}">취소 / 대시보드로</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

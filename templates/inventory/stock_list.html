@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load inventory_extras %}
+{% block title %}재고현황 · gimpo365-inventory{% endblock %}
+{% block content %}
+<h1>재고현황</h1>
+<p class="muted">부서별 재고 품목 현황을 확인합니다. 빠른 필터로 최소재고 이하 품목만 볼 수 있습니다.</p>
+
+<p class="quick-range">
+  <a href="?filter=all" {% if active_filter == 'all' %}class="active"{% endif %}>전체 품목</a>
+  · <a href="?filter=low_stock" {% if active_filter == 'low_stock' %}class="active"{% endif %}>최소재고 이하</a>
+</p>
+
+<form method="get" class="filter-form">
+  {% if active_filter == 'low_stock' %}<input type="hidden" name="filter" value="low_stock">{% endif %}
+  {{ filter_form.as_p }}
+  <button type="submit">조회</button>
+</form>
+
+{% if nav_is_manager %}
+<p><a class="action-card" href="{% url 'inventory:stock_export' %}?{{ request.GET.urlencode }}">엑셀 다운로드</a></p>
+{% endif %}
+
+<div class="table-wrap">
+<table class="data stock-table">
+  <thead>
+    <tr>
+      <th class="col-name">품목명</th><th class="col-dept">부서</th>
+      <th class="num">현재고</th><th class="num">최소재고</th><th>단위</th>
+      <th>상태</th><th>보관장소</th><th>기본 공급업체</th><th>주문</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr {% if item.current_stock <= item.minimum_stock %}class="low"{% endif %}>
+      <td class="col-name"><a href="{% url 'inventory:managed_item_detail' item.pk %}">{{ item.item.name }}</a></td>
+      <td class="col-dept">{{ item.department.name }}</td>
+      <td class="num">{{ item.current_stock|qty }}</td>
+      <td class="num">{{ item.minimum_stock|qty }}</td>
+      <td>{{ item.get_unit_display }}</td>
+      <td>
+        {% if item.current_stock <= 0 %}
+          <span class="badge-low">재고 없음</span>
+        {% elif item.current_stock <= item.minimum_stock %}
+          <span class="badge-low">최소재고 이하</span>
+        {% else %}
+          <span class="badge-ok">정상</span>
+        {% endif %}
+      </td>
+      <td>{{ item.storage_location }}</td>
+      <td>{% if item.default_supplier %}<a href="{% url 'inventory:supplier_detail' item.default_supplier_id %}">{{ item.default_supplier.name }}</a>{% else %}-{% endif %}</td>
+      <td>{% include "inventory/_add_to_cart.html" %}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="9">표시할 관리품목이 없습니다.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

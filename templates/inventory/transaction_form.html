@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} · gimpo365-inventory{% endblock %}
+{% block content %}
+<h1>{{ page_title }}</h1>
+
+<div class="card form-card">
+  {% if adjustment_mode %}
+  <div id="mode-guide" class="msg info" hidden></div>
+  {% endif %}
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="form-actions">
+      <button type="submit">저장</button>
+      <a class="back-link" href="{% url 'inventory:dashboard' %}">취소 / 대시보드로</a>
+    </div>
+  </form>
+
+  {% comment %}
+  선택 관리품목 정보 패널 (현재고/최소재고/보관장소/단위, 출고는 예상재고).
+  후보 리스트에는 최소 정보(품목명·부서)만, 상세 수치는 이 패널에서만 표시한다. (중복 제거)
+  {% endcomment %}
+  <div id="mi-info" class="mi-info" data-projected="{{ show_projected|yesno:'1,0' }}" hidden>
+    <h2>선택 품목 정보</h2>
+    <p class="mi-line"><strong id="mi-title">-</strong></p>
+    <p class="mi-line">
+      단위 <strong id="mi-unit2">-</strong>
+      · 현재고 <strong id="mi-stock">-</strong>
+      · 보관장소 <strong id="mi-loc">-</strong>
+    </p>
+    <p id="mi-projected-row" class="mi-line" hidden>
+      출고 후 예상 재고: <strong id="mi-projected">-</strong>
+    </p>
+  </div>
+</div>
+
+{% comment %}
+관리품목 자동완성 (v0.1.1, 외부 라이브러리 없음).
+실제 폼 필드(<select name=managed_item>)는 숨겨두고 값만 유지하므로 폼 검증/권한 범위가 그대로 유지된다.
+서버가 내려준 권한 범위 내 옵션만 다루므로 권한 밖 품목은 후보에 노출/검색되지 않는다.
+{% endcomment %}
+<script>
+(function () {
+  var select = document.getElementById("id_managed_item");
+  if (!select) return;
+
+  // 실제 select 는 숨기고(값 제출용 유지), 그 위에 자동완성 UI 를 만든다.
+  select.style.display = "none";
+
+  var wrap = document.createElement("div");
+  wrap.className = "mi-autocomplete";
+  var input = document.createElement("input");
+  input.type = "search";
+  input.placeholder = "관리품목 검색 (품목명/부서/보관장소)…";
+  input.setAttribute("aria-label", "관리품목 검색");
+  input.autocomplete = "off";
+  var list = document.createElement("ul");
+  list.className = "mi-candidates";
+  list.hidden = true;
+  wrap.appendChild(input);
+  wrap.appendChild(list);
+  select.parentNode.insertBefore(wrap, select);
+
+  // 현재 선택값이 있으면 입력창에 반영
+  function selectedOption() { return select.options[select.selectedIndex]; }
+  function nameOf(opt) { return opt.getAttribute("data-name") || opt.text; }
+  function deptOf(opt) { return opt.getAttribute("data-dept") || ""; }
+  function unitOf(opt) { return opt.getAttribute("data-unit") || ""; }
+  // 후보 라벨: 품목명 · 부서 · 단위 (1-3)
+  function candLabel(opt) {
+    return [nameOf(opt), deptOf(opt), unitOf(opt)].filter(Boolean).join(" · ");
+  }
+  // 패널 제목: 품목명 / 부서 (1-4)
+  function titleLabel(opt) {
+    var d = deptOf(opt);
+    return d ? (nameOf(opt) + " / " + d) : nameOf(opt);
+  }
+  if (select.value) input.value = candLabel(selectedOption());
+
+  // 부서 필터 (MANAGER/ADMIN 화면에만 존재). 선택 시 해당 부서 후보만 노출한다.
+  // 서버 권한 범위는 그대로이며(옵션은 이미 접근 가능한 품목뿐), 화면 후보만 좁힌다.
+  var deptSelect = document.getElementById("id_department");
+  function deptFilterValue() { return deptSelect ? deptSelect.value : ""; }
+  function optDeptId(opt) { return opt.getAttribute("data-dept-id") || ""; }
+
+  function render(q) {
+    list.innerHTML = "";
+    var count = 0;
+    var dept = deptFilterValue();
+    Array.prototype.forEach.call(select.options, function (opt) {
+      if (!opt.value) return;
+      if (dept && optDeptId(opt) !== dept) return;  // 부서 필터
+      var hay = (
+        (opt.getAttribute("data-name") || opt.text) + " " +
+        (opt.getAttribute("data-dept") || "") + " " +
+        (opt.getAttribute("data-loc") || "")
+      ).toLowerCase();
+      if (q && hay.indexOf(q) === -1) return;
+      var li = document.createElement("li");
+      li.textContent = candLabel(opt);          // 후보: 품목명 · 부서 · 단위
+      li.dataset.value = opt.value;
+      li.addEventListener("mousedown", function (e) {
+        e.preventDefault();
+        select.value = opt.value;
+        input.value = candLabel(opt);
+        list.hidden = true;
+        select.dispatchEvent(new Event("change"));
+      });
+      list.appendChild(li);
+      count++;
+    });
+    list.hidden = count === 0;
+  }
+
+  input.addEventListener("input", function () { render(input.value.trim().toLowerCase()); });
+  input.addEventListener("focus", function () { render(input.value.trim().toLowerCase()); });
+  input.addEventListener("blur", function () { setTimeout(function () { list.hidden = true; }, 150); });
+
+  // 부서 필터 변경: 선택 품목이 필터 부서와 다르면 선택을 비우고, 후보를 다시 그린다.
+  if (deptSelect) {
+    deptSelect.addEventListener("change", function () {
+      var dept = deptFilterValue();
+      var cur = selectedOption();
+      if (dept && cur && cur.value && optDeptId(cur) !== dept) {
+        select.value = "";
+        input.value = "";
+        select.dispatchEvent(new Event("change"));
+      }
+      render(input.value.trim().toLowerCase());
+    });
+  }
+
+  // 선택 정보 패널
+  var info = document.getElementById("mi-info");
+  var qtyInput = document.getElementById("id_quantity");
+  var projected = info && info.getAttribute("data-projected") === "1";
+
+  // 실사조정 통합 화면: 모드 안내 + 조정 사유 토글
+  var modeGuide = document.getElementById("mode-guide");
+  var reasonField = document.getElementById("id_reason");
+  var reasonP = reasonField ? reasonField.closest("p") : null;
+  var GUIDE = {
+    initial: "이 품목은 아직 기준 재고가 없습니다. 입력한 수량은 ‘최초 재고 입력’으로 요청됩니다. 승인 전까지 재고현황에는 반영되지 않습니다.",
+    adjustment: "현재 시스템 재고와 실제 재고가 다를 때 실사조정을 요청합니다. 승인 전까지 재고현황에는 반영되지 않습니다."
+  };
+  function updateMode(opt) {
+    if (!modeGuide) return;
+    var mode = opt ? opt.getAttribute("data-mode") : null;
+    if (!opt || !opt.value || !mode) { modeGuide.hidden = true; if (reasonP) reasonP.hidden = false; return; }
+    modeGuide.hidden = false;
+    modeGuide.textContent = GUIDE[mode] || "";
+    if (reasonP) reasonP.hidden = (mode === "initial");  // 최초 재고 입력 모드는 사유 숨김
+  }
+  function num(v) { var n = parseFloat(v); return isNaN(n) ? null : n; }
+  function fmt(n) { return (Math.round(n * 1000) / 1000).toString(); }
+
+  // 입고 화면: 선택 품목의 기본 공급업체를 공급업체 입력값 초기값으로 자동 선택 (v0.1.2).
+  // 등록된 Supplier 옵션 중에서만 선택되며(자유 텍스트 불가), 사용자는 이후 자유롭게 변경 가능.
+  var supplierSelect = document.getElementById("id_supplier");
+  function syncSupplier(opt) {
+    if (!supplierSelect || !opt) return;
+    var sup = opt.getAttribute("data-supplier");
+    if (sup) {
+      // 해당 공급업체가 옵션으로 존재할 때만 반영 (비활성/미등록이면 건드리지 않음)
+      for (var i = 0; i < supplierSelect.options.length; i++) {
+        if (supplierSelect.options[i].value === sup) { supplierSelect.value = sup; break; }
+      }
+    }
+  }
+
+  function update() {
+    var opt = selectedOption();
+    updateMode(opt);
+    syncSupplier(opt);
+    if (!info) return;
+    var stock = opt ? opt.getAttribute("data-stock") : null;
+    if (!opt || !opt.value || stock === null) { info.hidden = true; return; }
+    info.hidden = false;
+    document.getElementById("mi-title").textContent = titleLabel(opt);
+    document.getElementById("mi-stock").textContent = stock;
+    document.getElementById("mi-loc").textContent = opt.getAttribute("data-loc") || "미지정";
+    document.getElementById("mi-unit2").textContent = unitOf(opt) || "-";
+    var prow = document.getElementById("mi-projected-row");
+    if (projected && qtyInput && prow) {
+      var s = num(stock), q = num(qtyInput.value);
+      if (s !== null && q !== null) {
+        prow.hidden = false;
+        document.getElementById("mi-projected").textContent =
+          fmt(s - q) + " " + (opt.getAttribute("data-unit") || "");
+      } else { prow.hidden = true; }
+    }
+  }
+  select.addEventListener("change", update);
+  if (qtyInput) qtyInput.addEventListener("input", update);
+  update();
+})();
+</script>
+{% endblock %}
