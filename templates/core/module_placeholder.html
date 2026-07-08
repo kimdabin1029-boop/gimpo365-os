@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ module_name }} · 김포365OS{% endblock %}
+{% block content %}
+<h1>{{ module_name }} <span class="os-badge soon">준비 중</span></h1>
+<div class="card">
+  <p>준비 중인 모듈입니다.</p>
+  <p>현재는 사용할 수 없습니다.</p>
+  <p>향후 기능이 추가될 예정입니다.</p>
+  <p style="margin-top:16px;">
+    <a class="back-link" href="{% url 'home' %}">← OS 홈으로 돌아가기</a>
+  </p>
+</div>
+{% endblock %}

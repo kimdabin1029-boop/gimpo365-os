@@ -11,3 +11,14 @@ class OSHomeView(LoginRequiredMixin, TemplateView):
     """
 
     template_name = "core/os_home.html"
+
+
+class ModulePlaceholderView(LoginRequiredMixin, TemplateView):
+    """미구현 모듈 공통 "준비 중" 안내 화면. (Phase 1 / P1-04)
+
+    아직 실제 기능이 없는 모듈을 클릭했을 때, 입력 폼·데이터·저장 동작 없이
+    준비 중임을 안내한다. 모듈명은 각 URL 에서 extra_context 로 주입해
+    하나의 template 을 재사용한다.
+    """
+
+    template_name = "core/module_placeholder.html"

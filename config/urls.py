@@ -5,11 +5,9 @@ from django.contrib import admin
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.urls import include, path
 
-from core.views import OSHomeView
-
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", OSHomeView.as_view(), name="home"),
+    path("", include("core.urls")),
     path("accounts/", include("accounts.urls")),
     path("inventory/", include("inventory.urls")),
 ]
