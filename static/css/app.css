@@ -492,3 +492,43 @@ button.action-card { border: 0; cursor: pointer; font: inherit; }
   table.data { font-size: 0.86rem; }
   table.data thead th, table.data td { padding: 8px 10px; }
 }
+
+/* ---------- OS 홈 모듈 카드 (Phase 1 / P1-01) ---------- */
+.os-home-intro { margin: -6px 0 20px; color: var(--muted); }
+.os-module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+.os-module-card {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+  text-decoration: none;
+  color: var(--text);
+}
+.os-module-card .os-module-cat {
+  font-size: 0.74rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.os-module-card .os-module-name { font-size: 1.05rem; font-weight: 700; margin: 4px 0 6px; }
+.os-module-card .os-module-desc { font-size: 0.88rem; color: var(--muted); margin: 0; }
+a.os-module-card { transition: border-color 0.15s, box-shadow 0.15s; }
+a.os-module-card:hover { border-color: var(--primary); box-shadow: var(--shadow-pop); color: var(--text); }
+/* 준비 중 카드: 실제 기능처럼 보이지 않게 점선·비활성 처리 */
+.os-module-card.disabled {
+  background: var(--surface-alt);
+  border-style: dashed;
+  cursor: default;
+  opacity: 0.85;
+}
+.os-badge {
+  display: inline-block; float: right;
+  border-radius: 999px; padding: 2px 10px;
+  font-size: 0.74rem; font-weight: 700;
+}
+.os-badge.ready { background: var(--success-bg); color: var(--success-fg); }
+.os-badge.soon { background: var(--warning-bg); color: var(--warning-fg); }

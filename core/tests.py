@@ -1,8 +1,9 @@
 from django.db import IntegrityError, connection, transaction
 from django.test import TestCase
+from django.urls import reverse
 
 from accounts.models import Role
-from core.factories import BaseFixtureTestCase
+from core.factories import DEFAULT_PASSWORD, BaseFixtureTestCase
 from core.models import Department
 
 
@@ -60,3 +61,33 @@ class FixtureSetupTest(BaseFixtureTestCase):
         self.assertEqual(self.admin.role, Role.ADMIN)
         self.assertTrue(self.admin.is_staff)
         self.assertTrue(self.admin.is_superuser)
+
+
+class OSHomeViewTest(BaseFixtureTestCase):
+    """OS 홈(루트 /) 동작 확인. (Phase 1 / P1-01)"""
+
+    def test_anonymous_redirects_to_login(self):
+        """비로그인 사용자는 로그인 화면으로 리다이렉트된다."""
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("accounts:login"), response.url)
+
+    def test_authenticated_shows_os_home(self):
+        """로그인 사용자는 OS 홈 template 을 200 으로 받는다."""
+        self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "core/os_home.html")
+        self.assertContains(response, "김포365OS")
+
+    def test_home_links_to_inventory(self):
+        """재고관리 카드가 실제 inventory 진입 링크를 가진다."""
+        self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, reverse("inventory:dashboard"))
+
+    def test_home_shows_preparing_modules(self):
+        """미구현 모듈은 '준비 중'으로 표시된다."""
+        self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, "준비 중")

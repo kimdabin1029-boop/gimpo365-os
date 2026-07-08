@@ -1,15 +1,13 @@
-from django.urls import reverse
-from django.views.generic import RedirectView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import TemplateView
 
 
-class HomeRedirectView(RedirectView):
-    """루트(/) 진입 시 분기. (PRODUCT_SPEC §10.2)
+class OSHomeView(LoginRequiredMixin, TemplateView):
+    """OS 홈. 로그인 후 첫 화면이며 모듈 선택 화면이다. (Phase 1 / P1-01)
 
-    - 로그인 상태  → inventory 대시보드
-    - 비로그인 상태 → 로그인 화면
+    - 비로그인 상태 → LoginRequiredMixin 이 settings.LOGIN_URL(accounts:login)로 보낸다.
+    - 로그인 상태  → 모듈 카드 목록을 보여준다.
+    - 재고관리만 실제 진입 가능하고, 나머지 모듈은 "준비 중"으로 표시한다.
     """
 
-    def get_redirect_url(self, *args, **kwargs):
-        if self.request.user.is_authenticated:
-            return reverse("inventory:dashboard")
-        return reverse("accounts:login")
+    template_name = "core/os_home.html"

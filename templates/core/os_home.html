@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}김포365OS{% endblock %}
+{% block content %}
+<h1>김포365OS</h1>
+<p class="os-home-intro">김포365한의원 내부 운영 시스템입니다. 사용할 모듈을 선택하세요.</p>
+
+<div class="os-module-grid">
+  {# 사용 가능: 운영관리 > 재고관리 (기존 inventory 진입) #}
+  <a class="os-module-card" href="{% url 'inventory:dashboard' %}">
+    <span class="os-badge ready">사용 가능</span>
+    <div class="os-module-cat">운영관리</div>
+    <div class="os-module-name">재고관리</div>
+    <p class="os-module-desc">품목 재고 현황, 입·출고, 주문/입고 관리</p>
+  </a>
+
+  {# 준비 중 모듈: 이번 단계에서는 링크/placeholder view 없이 표시만 한다 (P1-04에서 연결). #}
+  <div class="os-module-card disabled" aria-disabled="true">
+    <span class="os-badge soon">준비 중</span>
+    <div class="os-module-cat">소통</div>
+    <div class="os-module-name">공지사항</div>
+    <p class="os-module-desc">준비 중입니다.</p>
+  </div>
+
+  <div class="os-module-card disabled" aria-disabled="true">
+    <span class="os-badge soon">준비 중</span>
+    <div class="os-module-cat">일일업무</div>
+    <div class="os-module-name">오픈/마감 체크리스트</div>
+    <p class="os-module-desc">준비 중입니다.</p>
+  </div>
+
+  <div class="os-module-card disabled" aria-disabled="true">
+    <span class="os-badge soon">준비 중</span>
+    <div class="os-module-cat">업무기준</div>
+    <div class="os-module-name">SOP/업무 매뉴얼</div>
+    <p class="os-module-desc">준비 중입니다.</p>
+  </div>
+
+  <div class="os-module-card disabled" aria-disabled="true">
+    <span class="os-badge soon">준비 중</span>
+    <div class="os-module-cat">요청/결재</div>
+    <div class="os-module-name">내부 요청/결재</div>
+    <p class="os-module-desc">준비 중입니다.</p>
+  </div>
+
+  <div class="os-module-card disabled" aria-disabled="true">
+    <span class="os-badge soon">준비 중</span>
+    <div class="os-module-cat">근무</div>
+    <div class="os-module-name">근태/근무표</div>
+    <p class="os-module-desc">준비 중입니다.</p>
+  </div>
+</div>
+{% endblock %}
