@@ -27,3 +27,9 @@ Thumbs.db
 
 # Claude Code 로컬 설정
 .claude/settings.local.json
+
+# DB dumps / backups (never commit)
+*.dump
+*.backup
+*.sql
+*.zip
