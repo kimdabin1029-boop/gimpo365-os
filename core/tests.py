@@ -91,3 +91,14 @@ class OSHomeViewTest(BaseFixtureTestCase):
         self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
         response = self.client.get(reverse("home"))
         self.assertContains(response, "준비 중")
+
+    def test_sidebar_shows_inventory_under_operations(self):
+        """사이드바에서 재고관리가 '운영관리' 그룹 아래에 보인다. (P1-03)
+
+        OS 홈과 inventory 화면 모두에서 '운영관리' 구분선과 재고관리 링크가 함께 노출된다.
+        """
+        self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
+        for url in (reverse("home"), reverse("inventory:dashboard")):
+            response = self.client.get(url)
+            self.assertContains(response, "운영관리")
+            self.assertContains(response, reverse("inventory:dashboard"))

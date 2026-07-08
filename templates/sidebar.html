@@ -19,6 +19,7 @@
           <a class="sidebar-link" href="{% url 'home' %}">OS 홈</a>
         {% endif %}
       </li>
+      <li class="sidebar-sep"><span>운영관리</span></li>
       <li>
         {% if ns == 'inventory' %}
           <a class="sidebar-link active" aria-current="page" href="{% url 'inventory:dashboard' %}">재고관리</a>
