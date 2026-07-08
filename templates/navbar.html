@@ -1,5 +1,5 @@
 <nav class="navbar">
-  <a class="navbar-brand" href="{% url 'inventory:dashboard' %}">gimpo365-inventory</a>
+  <a class="navbar-brand" href="{% url 'home' %}">김포365OS</a>
   {% if user.is_authenticated %}
     <span class="navbar-user">
       {{ user.display_name }} · {{ user.get_role_display }} · {{ user.department.name|default:"소속 없음" }}
