@@ -6,8 +6,8 @@
 
 ```text
 문서명: OS_TASKS.md
-문서 버전: v0.2
-최종 수정일: 2026-07-08
+문서 버전: v0.3
+최종 수정일: 2026-07-09
 문서 범위: 김포365OS의 실제 작업 목록(살아있는 문서). 진행 상태를 추적한다.
 ```
 
@@ -15,6 +15,7 @@
 
 | 버전 | 수정일 | 변경 요약 |
 | --- | --- | --- |
+| v0.3 | 2026-07-09 | Phase 1(P1-00~P1-08) 완료 반영. §2 스냅샷·§5 Phase 1 목록을 실제 실행 순서로 갱신(P1-00 조사 추가, README를 P1-07로 이동), Phase 1 완료 요약·마감 후속 후보 추가, §6 Phase 1.5를 기존 Department 검증 성격(대기)으로 정리 |
 | v0.2 | 2026-07-08 | 검토 반영: 경로 규칙 확정(OS_*.md 루트, 리포트·모듈문서만 docs/), TECH_SPEC 등 참조를 절 제목 기준으로 변경, Phase 1 착수 전제에서 T-B4/B5 성격 분리, T-A1/T-A2 커밋 완료 반영 |
 | v0.1 | 2026-07-08 | 최초 작성. 코드조사 후속작업 흡수, 문서 세트 현황 반영, Phase 1 착수 작업 단위 연결 |
 
@@ -42,10 +43,12 @@
 ## 2. 현재 상태 요약 (스냅샷)
 
 ```text
-단계: Phase 1 (OS 최소 틀) 착수 준비 — 문서 기반 구축 단계
-브랜치: docs/os-foundation (문서 작업 중)
-문서 세트: 초안 완료, 검토 반영 중
-코드: 아직 OS 셸 미착수. 안전화(T-A1/T-A2)만 선반영 완료.
+갱신일: 2026-07-09
+단계: Phase 1 (OS 최소 틀) 완료
+브랜치: main 기준 P1-01~P1-08 반영 완료
+코드: OS 셸 구축 완료 — Inventory는 운영관리 > 재고관리 위치에서 사용 가능
+준비 중: 공지사항 / 오픈·마감 체크리스트 / SOP·업무 매뉴얼 / 내부 요청·결재 / 근태·근무표 (placeholder)
+다음 단계: Phase 1 마감 후속 정리(브라우저 title 접미사 등) 또는 Phase 1.5 Department/Team 검증
 ```
 
 ---
@@ -120,26 +123,45 @@
 
 ---
 
-## 5. Phase 1 — OS 최소 틀 (다음 착수)
+## 5. Phase 1 — OS 최소 틀 (완료)
 
 기준: OS_ROADMAP Phase 1, OS_ARCHITECTURE의 초기 구현 우선순위 절. 각 항목은 별도 작업 단위.
 
-> 착수 전제(정리):
-> - T-B2 / T-B3(기준표 갱신·폴더/버전 반영): 문서 혼선을 줄이므로 **착수 전 정리 권장.**
-> - T-B4(rename 사후 확인): 단순 확인이므로 Phase 1과 **병행 가능.**
-> - T-B5(backup_db.bat 위치): DB 운영 문서(OS_DB_OPERATIONS) 보강 항목이라 **OS 셸 구현을 막지 않는다.** 별도로 처리.
-> 모든 코드 작업은 리허설에서. 작업 전 `.env` POSTGRES_DB 확인(OS_OPERATIONS_SETUP의 서버 실행 전 공통 체크).
+> 실제 착수 시 순서를 재정리했다: 맨 앞에 구조 조사(P1-00)를 추가하고, README 정비는 틀이 선 뒤 실제 구조를 반영하도록 뒤(P1-07)로 옮겼다. 모든 코드 작업은 리허설에서 수행했고, 작업 전 `.env` POSTGRES_DB(=gimpo365os_rehearsal)를 확인했다.
 
 ```text
-[ ] P1-01  README.md를 gimpo365-os 기준으로 정비 (문서 지도)
-[ ] P1-02  루트 URL을 OS 홈으로 연결 (config urls)
-[ ] P1-03  OS 홈 view/template 생성 (core) — 모듈 카드 배치
-[ ] P1-04  공통 base template / navbar / sidebar 정비
-[ ] P1-05  Inventory를 "운영관리 > 재고관리" 위치로 메뉴 배치
-[ ] P1-06  준비 중 모듈 placeholder view/template (core) — notices/checklists/manuals/requests/schedules
-[ ] P1-07  미구현 모듈을 전 직원에게 "준비 중"으로 노출
-[ ] P1-08  권한별 메뉴 노출 확인 (관리자/팀장/직원)
-[ ] P1-09  check/test 통과 + OS 공통 smoke QA (OS_MANUAL_QA_CHECKLIST의 OS 공통 smoke QA)
+[x] P1-00  기존 inventory URL·template 상속·base.html·core(Department) 구조 파악
+[x] P1-01  루트 URL → OS 홈 + OS 홈 최소 화면 (config urls, core view/template — 모듈 카드)
+[x] P1-02  공통 base template / navbar / sidebar 정비
+[x] P1-03  Inventory를 "운영관리 > 재고관리" 위치로 메뉴 배치
+[x] P1-04  준비 중 모듈 placeholder view/template (core) — notices/checklists/manuals/requests/schedules
+[x] P1-05  미구현 모듈 전 직원 노출
+           └ P1-04의 OS 홈 카드 + placeholder 연결로 전 직원 노출 충족. sidebar 추가는 메뉴 과밀 방지를 위해 보류(코드 변경 없음).
+[x] P1-06  권한별 메뉴 노출 확인
+           └ 자동 테스트 기준 권한별 메뉴 노출 PASS. 실계정 브라우저 확인은 자격정보 부재로 미수행(코드 변경 없음).
+[x] P1-07  README를 OS 기준으로 교체
+[x] P1-08  전체 smoke QA + check/test
+           └ check/test 통과, OS 홈·placeholder·Inventory 회귀·권한 메뉴·README·민감파일 점검 PASS.
+```
+
+Phase 1 완료 요약:
+
+```text
+- 김포365OS 홈 화면 생성 (로그인 후 첫 화면)
+- 공통 navbar/sidebar를 김포365OS 기준으로 정비 (브랜드/홈 링크, namespace 기반 상세 메뉴)
+- Inventory를 운영관리 > 재고관리 모듈로 배치
+- 준비 중 모듈 5종 placeholder 연결 (폼·데이터 없는 안내 화면)
+- 미구현 모듈은 OS 홈에서 전 직원에게 "준비 중"으로 노출
+- 권한별 메뉴 노출 확인 (자동 테스트 기준)
+- README를 OS 기준으로 교체
+- 전체 smoke QA 통과 (check + test 412 OK)
+```
+
+Phase 1 마감 후속 후보 (다음 작업에서 개별 결정):
+
+```text
+[ ] 브라우저 title 접미사 정리 — 일부 화면 title의 `· gimpo365-inventory` 접미사 정리 (기능 변경 없음, 별도 template 정리 작업)
+→ 이후: Phase 1.5 Department/Team 검증(§6), Phase 2 Notice(§7)
 ```
 
 Phase 1에서 하지 않을 것 (OS_ROADMAP Phase 1의 "구현하지 않을 것"):
@@ -150,17 +172,17 @@ Phase 1에서 하지 않을 것 (OS_ROADMAP Phase 1의 "구현하지 않을 것"
 
 ---
 
-## 6. Phase 1.5 — Department/Team 소속 기준 (Phase 1 이후)
+## 6. Phase 1.5 — Department/Team 소속 기준 (대기)
 
 기준: OS_ROADMAP Phase 1.5, OS_ARCHITECTURE의 Department/Team 소속 모델 원칙 절, OS_TECH_SPEC의 Department/Team 구현 기준 절.
 
-> 조사 리포트의 Department 관련 결론을 먼저 확인해 분기를 닫는다.
+> 구조 조사(P1-00)에서 core에 `Department` 모델이 이미 존재함을 확인했다. 따라서 이 단계는 신설이 아니라, 기존 Department가 OS 공통 소속 기준으로 충분한지 검증하는 작업이다. 아직 착수하지 않았다(대기).
 
 ```text
-[ ] P15-01 (조사 결론 확인) 기존 코드에 Department/유사 소속 모델이 있는가 → 있으면/없으면 분기 확정
-[ ] P15-02 core에 Department/Team 기준정보 설계 (신설 또는 기존 승격)
-[ ] P15-03 User–Department/Team 연결 (additive migration, 리허설 우선)
-[ ] P15-04 check/test + smoke QA + migration 후 점검 (OS_MANUAL_QA_CHECKLIST의 Migration 후 점검)
+[ ] P15-01 기존 core.Department가 OS 공통 소속 기준(부서 / 팀장 소속 / 권한 필터)으로 충분한지 검증
+[ ] P15-02 Team 개념 필요 여부 판단 — 필요하면 기존 구조를 깨지 않는 additive 방식으로 보강 설계
+[ ] P15-03 User–Department/Team 연결 정비 (필요 시 additive migration, 리허설 우선)
+[ ] P15-04 check/test + smoke QA + (migration 시) Migration 후 점검 (OS_MANUAL_QA_CHECKLIST)
 ```
 
 ---
