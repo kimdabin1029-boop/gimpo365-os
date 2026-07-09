@@ -1,155 +1,109 @@
-# gimpo365-inventory
+# 김포365OS
 
-김포365한의원 내부 운영 시스템 `김포365OS`의 첫 번째 모듈인 재고관리 시스템입니다.
+김포365한의원 내부 운영 시스템이다. 기존 재고관리 MVP(`gimpo365-inventory`)를 기반으로,
+병원 내부 업무를 하나의 OS로 단계적으로 통합해 나간다.
 
-이 저장소의 주 범위는 `Inventory Module`입니다.  
-입고, 출고, 초기재고, 실사조정, 주문, 부분입고, 거래이력, 재고현황, 관리자 리포트, 기준정보 점검을 다룹니다.
+이 문서는 저장소를 처음 여는 운영자·개발자·Claude Code가 현재 프로젝트 성격을 빠르게 이해하기 위한 입구다.
+상세 내용은 각 `OS_*.md` 문서로 연결한다.
 
-현재 재고관리 MVP는 실무 투입 가능한 수준까지 구현되었으며, 이후 김포365OS 본체 개발에서는 이 저장소를 `Module 1: Inventory`의 기준 구현으로 참고합니다.
+---
 
-## 문서 지도
-별도 `OS_` 접두사가 없는 문서는 기본적으로 `Inventory Module` 기준 문서입니다.
+## 1. 프로젝트 개요
 
-| 문서 | 대상 | 용도 |
-|---|---|---|
-| **README.md** (이 문서) | 개발자 | 로컬 개발 환경, 실행, 테스트 |
-| [OPERATIONS_SETUP.md](OPERATIONS_SETUP.md) | 운영자 | 운영 서버 초기 세팅·계정·비상 복구·LAN 테스트 |
-| [DB_OPERATIONS.md](DB_OPERATIONS.md) | 운영자 | DB 백업/복구 기본 절차 |
-| [MANUAL_QA_CHECKLIST.md](MANUAL_QA_CHECKLIST.md) | 운영자/QA | 운영 투입 전 수동 점검 |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | 개발자 | 구조 / 장기 인트라넷 확장 분리 원칙 |
-| [ROADMAP.md](ROADMAP.md) | 전체 | 우선순위 / 단계별 방향 |
-| [PRODUCT_SPEC.md](PRODUCT_SPEC.md) | 전체 | 제품·운영 기준 명세 |
-| [TECH_SPEC.md](TECH_SPEC.md) | 개발자 | 구현 기준 명세 |
-| [TASKS.md](TASKS.md) | 개발자 | 작업 순서·진행 상태 |
+- 김포365한의원 내부 운영 시스템(김포365OS)
+- 기존 Inventory MVP를 기준 구현으로 삼아 OS로 확장 중
+- 재고관리, 공지사항, 오픈/마감 체크리스트, SOP/업무 매뉴얼, 내부 요청/결재, 근태/근무표 등을
+  단계적으로 하나의 시스템에 통합하는 것을 목표로 한다
+- 운영 안정성이 기능 추가보다 항상 우선한다 (자세히는 [CLAUDE.md](CLAUDE.md), [OS_WORKING_RULES.md](OS_WORKING_RULES.md))
 
-> **범위 / 방향:** 현재 v0.1 의 범위는 **재고관리**다. 장기적으로는 김포365한의원
-> **인트라넷 / 원내 업무 포털**의 첫 모듈로 확장될 수 있으나(게시판/문서함/체크리스트/
-> 근태/연차/인사는 향후 **별도 앱**으로 분리), 지금은 재고관리 안정화·사용성 개선이
-> 우선이며 확장 기능은 구현하지 않는다. 자세한 분리 원칙은 [ARCHITECTURE.md](ARCHITECTURE.md).
+## 2. 현재 상태
 
-## 기술 스택
+- **Phase 1 진행 중** — OS 최소 틀 단계
+- 완료: OS 홈 / 공통 shell(base·navbar·sidebar) / 운영관리 > 재고관리 메뉴 배치 / 준비 중 모듈 placeholder
+- **Inventory Module은 현재 사용 가능한 기준 모듈**이다
+- 나머지 모듈은 OS 홈에 "준비 중" placeholder로만 노출된다(실제 기능 없음)
+- 단계별 계획은 [OS_ROADMAP.md](OS_ROADMAP.md), 작업 상태는 [OS_TASKS.md](OS_TASKS.md) 참고
 
-| 구분 | 선택 |
+## 3. 주요 모듈
+
+| 모듈 | 상태 |
 |---|---|
-| Backend | Django 6.0 |
-| Database | **PostgreSQL** (SQLite 사용 안 함) |
-| Frontend | Django Template |
-| Admin | Django Admin (ADMIN 전용) |
-| Auth | Django 기본 인증 + `accounts.User`(AbstractUser) |
+| 운영관리 > 재고관리 | **사용 가능** |
+| 공지사항 | 준비 중 |
+| 오픈/마감 체크리스트 | 준비 중 |
+| SOP/업무 매뉴얼 | 준비 중 |
+| 내부 요청/결재 | 준비 중 |
+| 근태/근무표 | 준비 중 |
 
-## 프로젝트 구조
+재고관리는 입고·출고·초기재고·실사조정·주문·부분입고·거래이력·재고현황·관리자 리포트·기준정보 점검을 다룬다.
+재고관리 상세는 [docs/modules/inventory/](docs/modules/inventory/)의 `INVENTORY_*.md` 문서를 따른다.
 
-```text
-gimpo365inventory/
-  manage.py
-  config/      # Django 설정, root URL, 환경변수
-  core/        # 공통 모델 (Department), 공통 fixture(factory)
-  accounts/    # Custom User, 역할(Role), 권한 헬퍼
-  inventory/   # 품목/관리품목/거래원장, selector·service·permission, forms, views, admin
-  templates/
-  static/
-  requirements.txt
-  .env.example
-```
+## 4. 실행 전 안전 원칙
 
-핵심 설계(자세히는 [TECH_SPEC.md](TECH_SPEC.md)):
+- **운영 DB에 직접 연결하지 않는다.**
+- 기본 작업 DB는 **리허설 DB(`gimpo365os_rehearsal`)**다. 작업 전 `.env`의 `POSTGRES_DB` 값을 반드시 확인한다.
 
-- 현재고 = `APPROVED` 거래의 `quantity_delta` 합계 (별도 수량 필드 없음)
-- 재고 거래(`StockTransaction`) 생성·상태변경은 **오직 `inventory/services.py`** 로만 수행
-- 조회는 `inventory/selectors.py`, 권한은 `inventory/permissions.py`
+  ```powershell
+  Select-String -Path .env -Pattern "POSTGRES_DB"
+  ```
 
-## 로컬 개발 환경 설정
+- `.env`, `.venv`, DB dump/backup, `*.sql`, `*.zip`, `pgpass.conf`, 개인정보 파일은 **커밋하지 않는다.**
+- 비밀값(`SECRET_KEY`, DB·계정 비밀번호 등)을 코드·문서·커밋 메시지·로그에 남기지 않는다.
+- migration은 별도 승인 없이 만들지 않는다. 파괴적 migration은 기본 금지한다.
+- 환경변수 세부 항목은 저장소의 `.env.example`을 참고한다(값은 각자 채운다).
 
-### 1. 가상환경 / 의존성
+절대 규칙의 정본은 [CLAUDE.md](CLAUDE.md), 상세 작업 규칙은 [OS_WORKING_RULES.md](OS_WORKING_RULES.md)다.
+
+## 5. 로컬 실행 요약
+
+아래는 최소 절차다. **상세 환경 구성·리허설 DB 준비·서버 실행 절차는
+[OS_OPERATIONS_SETUP.md](OS_OPERATIONS_SETUP.md), [OS_ENVIRONMENT_BASELINE.md](OS_ENVIRONMENT_BASELINE.md)를 따른다.**
 
 ```powershell
+# 1) 가상환경 / 의존성
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
 
-### 2. 환경변수
-
-`.env.example` 을 `.env` 로 복사한 뒤 값을 채운다.
-
-```powershell
+# 2) 환경변수 (.env 는 .env.example 을 복사해 값을 채운다. 리허설 DB 를 가리켜야 한다)
 Copy-Item .env.example .env
-```
 
-`.env` 항목: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`,
-`POSTGRES_DB/USER/PASSWORD/HOST/PORT`. (값 미설정 시 개발용 기본값 사용)
-
-### 3. PostgreSQL
-
-PostgreSQL 이 설치되어 있어야 한다. **SQLite 는 사용하지 않는다.**
-`.env` 의 `POSTGRES_*` 와 일치하는 DB 를 준비한다.
-
-```sql
-CREATE DATABASE gimpo365_inventory;
-```
-
-### 4. 마이그레이션 / 실행
-
-```powershell
+# 3) 마이그레이션 / 리허설 서버 실행 (리허설 포트 8001)
 .\.venv\Scripts\python.exe manage.py migrate
-.\.venv\Scripts\python.exe manage.py createsuperuser   # role=ADMIN 강제 (최소 2개 권장)
-.\.venv\Scripts\python.exe manage.py runserver
+.\.venv\Scripts\python.exe manage.py runserver 8001
 ```
 
-접속: `http://127.0.0.1:8000/` (로그인 → 역할별 대시보드) / `/admin/` (ADMIN 전용)
+- 데이터베이스는 **PostgreSQL**을 사용한다. SQLite는 사용하지 않는다.
+- 로그인 후 첫 화면은 OS 홈이며, OS 홈에서 재고관리로 진입한다.
+- 사용자 생성·역할/부서 지정 등 운영 계정 절차는 [OS_OPERATIONS_SETUP.md](OS_OPERATIONS_SETUP.md)를 따른다.
 
-> `127.0.0.1` 은 그 PC 자기 자신만 접속된다. **원내 다른 PC 에서 테스트 접속**하려면
-> `python manage.py runserver 0.0.0.0:8000` 으로 띄우고, `.env` 의 `DJANGO_ALLOWED_HOSTS`
-> 에 서버 PC 내부 IP 를 추가한 뒤 `http://<서버PC_IP>:8000/` 로 접속한다. 방화벽 8000 포트
-> 허용이 필요할 수 있다. 상세 절차는 [OPERATIONS_SETUP.md](OPERATIONS_SETUP.md) §1A 참고.
-> 이는 원내 제한 테스트용이며, 실제 운영 배포는 별도 구성이 필요하다.
+## 6. 테스트
 
-## 테스트
-
-테스트는 **반드시 PostgreSQL** 에서 실행한다. SQLite 테스트 결과는 완료 기준으로
-인정하지 않는다. (TECH_SPEC §15)
+테스트는 **반드시 PostgreSQL**에서 실행한다(가드 테스트 `core.tests.DatabaseEngineTest`가 이를 검증한다).
 
 ```powershell
-# PowerShell 에서 (DB 비밀번호가 .env 와 다르면 환경변수로 주입)
-$env:PGPASSWORD="postgres"
+.\.venv\Scripts\python.exe manage.py check
 .\.venv\Scripts\python.exe manage.py test
 ```
 
-- 테스트 DB(`test_gimpo365_inventory`)는 러너가 자동 생성/삭제한다.
-- 가드 테스트 `core.tests.DatabaseEngineTest` 가 테스트 DB 가 PostgreSQL 인지 검증한다.
-- 현재 자동 테스트: **403건** (모델/제약·selector·service·permission·form·view·admin).
+- 테스트 DB는 러너가 자동 생성/삭제한다.
+- 테스트·QA 상세 기준은 [OS_TECH_SPEC.md](OS_TECH_SPEC.md), [OS_MANUAL_QA_CHECKLIST.md](OS_MANUAL_QA_CHECKLIST.md)를 따른다.
 
-> SQLite 로는 테스트하지 않는다. `settings.DATABASES` 의 ENGINE 은 PostgreSQL 로 고정되어 있다.
+## 7. 문서 지도
 
-## 개발 원칙 (요약)
+| 문서 | 용도 |
+|---|---|
+| [CLAUDE.md](CLAUDE.md) | 최상위 강제층 · 절대 규칙 정본 |
+| [OS_WORKING_RULES.md](OS_WORKING_RULES.md) | 상세 작업 규칙(Git/DB/migration/문서/QA) |
+| [OS_PRODUCT_SPEC.md](OS_PRODUCT_SPEC.md) | 제품·운영 기준 명세 |
+| [OS_ARCHITECTURE.md](OS_ARCHITECTURE.md) | 구조 / 확장 원칙 |
+| [OS_ROADMAP.md](OS_ROADMAP.md) | 우선순위 / 단계(Phase) |
+| [OS_TECH_SPEC.md](OS_TECH_SPEC.md) | 구현 기준 명세 |
+| [OS_ENVIRONMENT_BASELINE.md](OS_ENVIRONMENT_BASELINE.md) | 환경 기준선 |
+| [OS_OPERATIONS_SETUP.md](OS_OPERATIONS_SETUP.md) | 환경 구성 · 서버 실행 · 운영 반영 절차 |
+| [OS_DB_OPERATIONS.md](OS_DB_OPERATIONS.md) | DB 백업/복구/운영 반영 절차 |
+| [OS_MANUAL_QA_CHECKLIST.md](OS_MANUAL_QA_CHECKLIST.md) | 수동 QA 점검 |
+| [OS_TASKS.md](OS_TASKS.md) | 작업 순서 · 진행 상태 |
+| [docs/CODE_RECONCILIATION_REPORT.md](docs/CODE_RECONCILIATION_REPORT.md) | 코드-문서 정합 점검 보고 |
+| [docs/modules/inventory/](docs/modules/inventory/) | Inventory Module 문서(`INVENTORY_*.md`) |
 
-- `StockTransaction` 생성·상태변경은 **service 함수로만**. View/Form/Admin 직접 `create()`/`status` 변경 금지.
-- 현재고는 계산값(별도 저장 안 함). 출고·취소 시 row lock 후 현재고 재검증으로 음수 방지.
-- 오입력은 삭제가 아니라 `CANCELED` 상태로 이력 보존.
-- **계정은 개인별로 발급**(공유 계정 금지), 퇴사자는 삭제가 아니라 `is_active=False` 비활성화 — 거래 추적성 유지.
-- 사용자 생성은 Django Admin "사용자 추가"(username+비밀번호) → 생성 후 역할/부서 지정. 직원은 `/accounts/password-change/` 에서 본인 비밀번호 변경.
-- 자세한 금지사항: [TASKS.md](TASKS.md) §0, [TECH_SPEC.md](TECH_SPEC.md) §3.
-
-## 운영 투입
-
-운영 서버 초기 세팅과 계정/비상 복구는 [OPERATIONS_SETUP.md](OPERATIONS_SETUP.md),
-투입 전 점검은 [MANUAL_QA_CHECKLIST.md](MANUAL_QA_CHECKLIST.md) 를 따른다.
-
-## 주문 → 입고 (v0.2.x)
-
-- 주문은 **입고 예정 기록**이며 현재고를 바꾸지 않는다. 실제 재고 증가는 **입고등록**(APPROVED 입고 `StockTransaction`)으로만 발생한다.
-- 주문 상세에서 **OrderItem 단위 [입고등록]** 으로 부분입고할 수 있다. 주문 상태(주문완료/부분입고/입고완료)는 품목 입고 상태로 자동 계산된다.
-- 입고 거래는 `source_order_item` 으로 주문 품목과 연결된다. 기입고 수량 = 연결된 **APPROVED** 입고거래 합계(취소 시 자동 제외).
-- 주문수량 초과 입고는 차단(초과분은 일반 입고등록 + 메모 '추가증정'). 입고등록 시 **단가 필수(>0)·유통기한 필수**('유통기한 없음' 선택 시 입고일+3년 자동).
-- 자세한 운영 절차는 [OPERATIONS_SETUP.md](OPERATIONS_SETUP.md) §6B~6D.
-
-## 상세조회 (v0.2.2)
-
-- **관리품목/공급업체/거래 상세조회** 화면을 추가했다(읽기 전용). 목록에서 품목명·공급업체명·거래로 이동한다.
-- 상세조회는 입고/출고/실사조정/주문서-입고등록 흐름을 변경하지 않으며, **기존 권한 범위를 그대로 유지**한다(상세가 목록보다 넓게 노출되지 않음).
-- 현재고는 APPROVED 거래 합계 기준 그대로 표시. 거래 상세에는 연결된 주문(있으면) 정보를 함께 보여준다.
-
-## 관리자 리포트 / 엑셀 (v0.2.4)
-
-- MANAGER/ADMIN 전용 **읽기·출력 전용** 기능. 재고현황/거래이력/입고대기 **엑셀 다운로드** + **월간 입출고 요약** 화면·엑셀.
-- 집계는 APPROVED 거래 기준(현재고 계산 원칙 불변). 엑셀은 서버 미저장·즉시 다운로드(openpyxl).
-- 상세 운영 절차는 [OPERATIONS_SETUP.md](OPERATIONS_SETUP.md) §6H.
+> 이 저장소는 public 전제로 관리한다. 커밋 메시지·주석·문서·이슈에 직원 개인정보나 운영 상세, 비밀값을 넣지 않는다.
