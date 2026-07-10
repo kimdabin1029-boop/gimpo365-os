@@ -718,13 +718,17 @@ Department/Team은 특정 모듈 전용으로 만들지 않는다.
 Checklist 전용 Department 모델을 만들지 않는다.
 ```
 
-Phase 1.5에서 다음을 확인한다.
+Phase 1.5 결론 (확정):
 
 ```text
-기존 Inventory MVP에 Department 또는 유사 모델이 있는지 확인
-있으면 OS 공통 소속 기준으로 활용 가능한지 검토
-없으면 core에 Department/Team 기준정보 신설 여부 결정
-User와 Department/Team 연결 방식 결정
+core.Department 모델이 이미 존재하고, accounts.User 가 department FK + role 을 가진다.
+기본 소속/권한 범위는 role + department 조합을 따른다.
+  - STAFF / TEAM_LEADER: 본인 department 범위 중심
+  - MANAGER / ADMIN: 전체 범위 접근 가능
+Team 모델은 현 시점에서 만들지 않는다. Department보다 작은 범위가 필요하다는 운영 근거가 생기기 전까지 보류한다.
+새 업무/조직 단위가 필요하면 우선 새 Department 추가로 대응한다.
+모든 활성 직원은 department 지정을 운영 원칙으로 한다. User.department 가 비어 있는 활성 직원은 운영 점검 대상으로 본다. (모델 null 제약 변경 없음)
+신규 모듈(Checklist/Notice/SOP/Request/Attendance)은 Inventory에서 검증된 role + department 권한 패턴을 재사용한다.
 ```
 
 기술 원칙:

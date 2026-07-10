@@ -6,7 +6,7 @@
 
 ```text
 문서명: OS_TASKS.md
-문서 버전: v0.3
+문서 버전: v0.4
 최종 수정일: 2026-07-09
 문서 범위: 김포365OS의 실제 작업 목록(살아있는 문서). 진행 상태를 추적한다.
 ```
@@ -15,6 +15,7 @@
 
 | 버전 | 수정일 | 변경 요약 |
 | --- | --- | --- |
+| v0.4 | 2026-07-09 | Phase 1.5 조직 기준 문서화 반영: §2 스냅샷·§6 갱신(P15-01/02 완료, 결론 = Department + role 조합·Team 보류·활성 직원 department 지정 운영 원칙). OS_ARCHITECTURE §14 / OS_TECH_SPEC §16과 정합 |
 | v0.3 | 2026-07-09 | Phase 1(P1-00~P1-08) 완료 반영. §2 스냅샷·§5 Phase 1 목록을 실제 실행 순서로 갱신(P1-00 조사 추가, README를 P1-07로 이동), Phase 1 완료 요약·마감 후속 후보 추가, §6 Phase 1.5를 기존 Department 검증 성격(대기)으로 정리 |
 | v0.2 | 2026-07-08 | 검토 반영: 경로 규칙 확정(OS_*.md 루트, 리포트·모듈문서만 docs/), TECH_SPEC 등 참조를 절 제목 기준으로 변경, Phase 1 착수 전제에서 T-B4/B5 성격 분리, T-A1/T-A2 커밋 완료 반영 |
 | v0.1 | 2026-07-08 | 최초 작성. 코드조사 후속작업 흡수, 문서 세트 현황 반영, Phase 1 착수 작업 단위 연결 |
@@ -44,11 +45,12 @@
 
 ```text
 갱신일: 2026-07-09
-단계: Phase 1 (OS 최소 틀) 완료
-브랜치: main 기준 P1-01~P1-08 반영 완료
+단계: Phase 1 완료 · Phase 1.5 조직 기준 문서화 진행
+브랜치: main 기준 P1-01~P1-08 + title 접미사 정리 반영 완료
 코드: OS 셸 구축 완료 — Inventory는 운영관리 > 재고관리 위치에서 사용 가능
 준비 중: 공지사항 / 오픈·마감 체크리스트 / SOP·업무 매뉴얼 / 내부 요청·결재 / 근태·근무표 (placeholder)
-다음 단계: Phase 1 마감 후속 정리(브라우저 title 접미사 등) 또는 Phase 1.5 Department/Team 검증
+조직 기준: Department + role 조합으로 확정, Team 모델 미도입 (P15-01/02)
+다음 단계: Phase 1.5 종료 결정 후 Phase 2 Notice 착수
 ```
 
 ---
@@ -172,18 +174,31 @@ Phase 1에서 하지 않을 것 (OS_ROADMAP Phase 1의 "구현하지 않을 것"
 
 ---
 
-## 6. Phase 1.5 — Department/Team 소속 기준 (대기)
+## 6. Phase 1.5 — Department/Team 소속 기준 (문서화 완료 · 종료 결정 대기)
 
-기준: OS_ROADMAP Phase 1.5, OS_ARCHITECTURE의 Department/Team 소속 모델 원칙 절, OS_TECH_SPEC의 Department/Team 구현 기준 절.
+기준: OS_ROADMAP Phase 1.5, OS_ARCHITECTURE §14(조직 기준), OS_TECH_SPEC §16(Department/Team 구현 기준).
 
-> 구조 조사(P1-00)에서 core에 `Department` 모델이 이미 존재함을 확인했다. 따라서 이 단계는 신설이 아니라, 기존 Department가 OS 공통 소속 기준으로 충분한지 검증하는 작업이다. 아직 착수하지 않았다(대기).
+> P15-01 조사 결과: core에 `Department`가 이미 존재하고, `accounts.User`가 department FK + role을 가지며, 권한은 role + department 조합으로 작동한다(팀장은 본인 부서 범위). 실제 조직 구조상 부서가 최소 단위이고 부서 내 Team은 없다. 따라서 **조직 기준은 Department + role로 확정하고 Team 모델은 만들지 않는다.**
 
 ```text
-[ ] P15-01 기존 core.Department가 OS 공통 소속 기준(부서 / 팀장 소속 / 권한 필터)으로 충분한지 검증
-[ ] P15-02 Team 개념 필요 여부 판단 — 필요하면 기존 구조를 깨지 않는 additive 방식으로 보강 설계
-[ ] P15-03 User–Department/Team 연결 정비 (필요 시 additive migration, 리허설 우선)
-[ ] P15-04 check/test + smoke QA + (migration 시) Migration 후 점검 (OS_MANUAL_QA_CHECKLIST)
+[x] P15-01 기존 core.Department 충분성 검증 — Department + role 조합으로 충분, Team 불필요
+[x] P15-02 role + department 운영 기준 문서화 — OS_ARCHITECTURE §14 / OS_TECH_SPEC §16 반영
+[ ] P15-03 User–Department 연결 정비 — 코드 변경 없이 운영 기준으로 처리 예정(User.department 기존 유지, 모든 활성 직원 department 지정 원칙, migration 없음)
+[ ] P15-04 check·test·QA — 문서 작업이라 check만 수행(테스트는 P1-08 412 OK 유지), migration 없음
 ```
+
+Phase 1.5 결론(확정):
+
+```text
+- 조직 기준 = Department + role 조합. Team 모델 미도입.
+- 최소 조직 단위는 Department. 부서 내 차이는 role/직급.
+- 새 업무/조직 단위는 우선 새 Department로 대응.
+- 모든 활성 직원 department 지정이 운영 원칙 (User.department는 nullable 유지, 누락은 운영 점검 대상).
+- 신규 모듈(Checklist/Notice/SOP/Request/Attendance)은 Inventory에서 검증된 role + department 권한 패턴 재사용.
+- 코드/모델/migration 변경 없음.
+```
+
+> Phase 1.5 종료(P15-03/P15-04 [x] 처리) 여부는 이 문서화 보고 검토 후 확정한다.
 
 ---
 

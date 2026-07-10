@@ -489,6 +489,27 @@ POSTGRES_DB=gimpo365os_rehearsal
 
 ## 14. Department / Team 소속 모델 원칙
 
+> **Phase 1.5 결정 (2026-07-09): 김포365OS의 조직 기준은 Department + role 조합으로 확정한다. Team 모델은 현 시점에서 만들지 않는다.** 아래 본문에 남아 있는 "Team" 표현은 향후 강한 운영 근거가 생길 때만 검토하는 조건부 개념이며, 현재 구현 대상이 아니다.
+
+### 14.1 조직 기준: Department + role (Phase 1.5 확정)
+
+김포365OS의 최소 조직 단위는 Department다. 현재 병원 운영 구조상 부서 안에 별도 Team은 두지 않는다. 부서 내 차이는 팀장/팀원 등 role(직급) 차이로 표현한다.
+
+신규 모듈의 기본 소속/권한 범위는 `User.department`와 `User.role` 조합으로 판단한다.
+
+- `department`: 사용자의 소속 및 업무 범위 (`accounts.User.department` → `core.Department`)
+- `role`: 권한 등급 (`STAFF < TEAM_LEADER < MANAGER < ADMIN`)
+- STAFF / TEAM_LEADER: 본인 department 범위 중심
+- MANAGER / ADMIN: 전체 범위 접근 가능
+
+이 role + department 패턴은 Inventory에서 이미 검증되었고(부서 스코프 selector, 팀장 본인 부서 취소 권한 등), 향후 Checklist / Notice / SOP / Request / Attendance 에서 동일하게 재사용한다.
+
+운영 원칙: 모든 활성 직원은 department가 지정되어 있어야 한다. `User.department`는 기존 nullable 구조를 유지하며(모델 변경 없음), 활성 직원의 소속 누락은 운영 점검 대상으로 관리한다.
+
+Team 모델은 현 시점에서 만들지 않는다. 새 업무/조직 단위가 필요하면 우선 새 Department로 대응한다. 실제로 Department보다 작은 관리 단위가 필요하다는 운영 근거가 생기면, 그때 기존 구조를 깨지 않는 additive 방식으로 Team 또는 별도 범위 모델을 검토한다.
+
+### 14.2 역할과 소속 분리 원칙
+
 역할과 소속은 분리해서 관리한다.
 
 ```text
@@ -1088,7 +1109,7 @@ OS_OPERATIONS_SETUP.md 작성 후 리허설/운영 세팅 절차 연결
 OS_MANUAL_QA_CHECKLIST.md 작성 후 수동 점검 항목 연결
 Notice Module 설계 시 notice 앱 구조 반영
 Checklist Module 설계 시 checklist 앱 구조 반영
-Department/Team 모델 실제 구현 방식 확정
+Department 소속 기준: Phase 1.5에서 Department + role 조합으로 확정, Team 보류 (§14 반영). Department보다 작은 범위가 필요하다는 운영 근거 발생 시 additive 재검토
 migration 운영 절차 상세화
 리허설 DB 동기화 절차 상세화
 ```
