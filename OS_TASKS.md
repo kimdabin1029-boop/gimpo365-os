@@ -6,7 +6,7 @@
 
 ```text
 문서명: OS_TASKS.md
-문서 버전: v0.4
+문서 버전: v0.5
 최종 수정일: 2026-07-09
 문서 범위: 김포365OS의 실제 작업 목록(살아있는 문서). 진행 상태를 추적한다.
 ```
@@ -15,6 +15,7 @@
 
 | 버전 | 수정일 | 변경 요약 |
 | --- | --- | --- |
+| v0.5 | 2026-07-09 | Phase 1.5 종료 마감: §6 헤딩 (완료), P15-03/P15-04 [x] 전환(코드 변경 없이 충족), §2 스냅샷을 Phase 1.5 완료·다음 단계 Phase 2로 갱신 |
 | v0.4 | 2026-07-09 | Phase 1.5 조직 기준 문서화 반영: §2 스냅샷·§6 갱신(P15-01/02 완료, 결론 = Department + role 조합·Team 보류·활성 직원 department 지정 운영 원칙). OS_ARCHITECTURE §14 / OS_TECH_SPEC §16과 정합 |
 | v0.3 | 2026-07-09 | Phase 1(P1-00~P1-08) 완료 반영. §2 스냅샷·§5 Phase 1 목록을 실제 실행 순서로 갱신(P1-00 조사 추가, README를 P1-07로 이동), Phase 1 완료 요약·마감 후속 후보 추가, §6 Phase 1.5를 기존 Department 검증 성격(대기)으로 정리 |
 | v0.2 | 2026-07-08 | 검토 반영: 경로 규칙 확정(OS_*.md 루트, 리포트·모듈문서만 docs/), TECH_SPEC 등 참조를 절 제목 기준으로 변경, Phase 1 착수 전제에서 T-B4/B5 성격 분리, T-A1/T-A2 커밋 완료 반영 |
@@ -45,12 +46,12 @@
 
 ```text
 갱신일: 2026-07-09
-단계: Phase 1 완료 · Phase 1.5 조직 기준 문서화 진행
-브랜치: main 기준 P1-01~P1-08 + title 접미사 정리 반영 완료
+단계: Phase 1 완료 · Phase 1.5 완료
+브랜치: main 기준 P1-01~P1-08 + title 접미사 정리 + Phase 1.5(P15-01~04) 반영 완료
 코드: OS 셸 구축 완료 — Inventory는 운영관리 > 재고관리 위치에서 사용 가능
 준비 중: 공지사항 / 오픈·마감 체크리스트 / SOP·업무 매뉴얼 / 내부 요청·결재 / 근태·근무표 (placeholder)
-조직 기준: Department + role 조합으로 확정, Team 모델 미도입 (P15-01/02)
-다음 단계: Phase 1.5 종료 결정 후 Phase 2 Notice 착수
+조직 기준: Department + role 조합으로 확정, Team 모델 미도입 (P15-01~04)
+다음 단계: Phase 2 Notice 착수
 ```
 
 ---
@@ -174,7 +175,7 @@ Phase 1에서 하지 않을 것 (OS_ROADMAP Phase 1의 "구현하지 않을 것"
 
 ---
 
-## 6. Phase 1.5 — Department/Team 소속 기준 (문서화 완료 · 종료 결정 대기)
+## 6. Phase 1.5 — Department/Team 소속 기준 (완료)
 
 기준: OS_ROADMAP Phase 1.5, OS_ARCHITECTURE §14(조직 기준), OS_TECH_SPEC §16(Department/Team 구현 기준).
 
@@ -183,8 +184,8 @@ Phase 1에서 하지 않을 것 (OS_ROADMAP Phase 1의 "구현하지 않을 것"
 ```text
 [x] P15-01 기존 core.Department 충분성 검증 — Department + role 조합으로 충분, Team 불필요
 [x] P15-02 role + department 운영 기준 문서화 — OS_ARCHITECTURE §14 / OS_TECH_SPEC §16 반영
-[ ] P15-03 User–Department 연결 정비 — 코드 변경 없이 운영 기준으로 처리 예정(User.department 기존 유지, 모든 활성 직원 department 지정 원칙, migration 없음)
-[ ] P15-04 check·test·QA — 문서 작업이라 check만 수행(테스트는 P1-08 412 OK 유지), migration 없음
+[x] P15-03 User–Department 연결 정비 — 코드 변경 없이 운영 기준으로 처리(User.department 기존 유지, 모든 활성 직원 department 지정 원칙, migration 없음)
+[x] P15-04 check·test·QA — check 통과, 전체 test 412 OK(P1-08), migration·코드 변경 없음
 ```
 
 Phase 1.5 결론(확정):
@@ -198,7 +199,7 @@ Phase 1.5 결론(확정):
 - 코드/모델/migration 변경 없음.
 ```
 
-> Phase 1.5 종료(P15-03/P15-04 [x] 처리) 여부는 이 문서화 보고 검토 후 확정한다.
+> Phase 1.5 종료 확정 (2026-07-09): P15-01~P15-04 완료. 조직 기준 = Department + role, Team 미도입. 코드/모델/migration 변경 없이 마감. 다음은 Phase 2 Notice.
 
 ---
 
