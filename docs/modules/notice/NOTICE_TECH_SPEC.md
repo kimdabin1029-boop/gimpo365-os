@@ -42,7 +42,7 @@ INSTALLED_APPS 등록: "notice" 를 로컬 앱(core, accounts, inventory) 뒤에
 
 ```text
 INSTALLED_APPS = [..., "core", "accounts", "inventory"]  (config/settings.py) — 아직 notice 없음
-core/models.py 에는 Department 만 있음. OperationalBaseModel 미구현.
+core/models.py 에는 Department + OperationalBaseModel(P2-01.5 신설, abstract) 있음. Notice 모델은 아직 없음.
 ```
 
 앱 구성 파일(구현 단계 산출물):
@@ -279,18 +279,18 @@ user.department 가 None 이면 target_department IS NULL 조건으로 번역되
 확인된 현재 상태:
 
 ```text
-OS_TECH_SPEC §17 은 core 의 공통 abstract base model(OperationalBaseModel 등)을 제안한다.
-현재 core/models.py 에는 Department 만 있고 OperationalBaseModel 은 아직 구현되어 있지 않다.
+OS_TECH_SPEC §17 은 core 의 공통 abstract base model(OperationalBaseModel)을 규정한다.
+core.models.OperationalBaseModel 은 P2-01.5 에서 신설 완료되었다(abstract, migration 없음).
 ```
 
 기준:
 
 ```text
-Notice 는 OperationalBaseModel 상속을 기본 방향으로 한다.
-core 에 OperationalBaseModel 이 없으므로, Notice 구현 전에 먼저 신설한다(P2-01.5).
-OperationalBaseModel 은 abstract base model(abstract = True)로 설계한다.
+Notice 는 OperationalBaseModel 을 상속한다.
+OperationalBaseModel 은 abstract base model(abstract = True)이다.
 공통 필드: created_at / updated_at / created_by / updated_by / is_active
-  (created_by=PROTECT, updated_by=SET_NULL 등 User FK 는 CASCADE 금지 — OS_TECH_SPEC §20)
+  created_by / updated_by 는 settings.AUTH_USER_MODEL FK, SET_NULL, null=True, blank=True 로 확정
+  (CASCADE 금지 — OS_TECH_SPEC §17·§20. 상세 정책은 P2-01.6).
 ```
 
 migration 성격 (중요):

@@ -107,7 +107,7 @@ P2-09    Notice v1.1 Attachment Gate 검토             [검토 게이트 — �
 ```text
 범위:
 - core 에 OperationalBaseModel(abstract=True) 신설.
-- 공통 필드: created_at, updated_at, created_by(PROTECT), updated_by(SET_NULL), is_active.
+- 공통 필드: created_at, updated_at, created_by(SET_NULL,null), updated_by(SET_NULL,null), is_active.
 성격: 코드-only 작업. abstract base model 이므로 DB 테이블 생성 없음.
 검증:
 - python manage.py makemigrations --check --dry-run → 변경 미감지여야 함(테이블 없음).

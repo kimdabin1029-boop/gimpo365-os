@@ -782,7 +782,7 @@ is_active
 status, Department/Team 등 일부 모듈에만 필요한 필드는 base에 넣지 않는다.
 ```
 
-예시 구조:
+구현 기준 (P2-01.5, `core.models.OperationalBaseModel`):
 
 ```python
 class OperationalBaseModel(models.Model):
@@ -790,15 +790,17 @@ class OperationalBaseModel(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name="+",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="%(app_label)s_%(class)s_created_set",
     )
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="+",
+        on_delete=models.SET_NULL,
+        related_name="%(app_label)s_%(class)s_updated_set",
     )
     is_active = models.BooleanField(default=True)
 
@@ -806,9 +808,16 @@ class OperationalBaseModel(models.Model):
         abstract = True
 ```
 
-위 코드는 방향 예시이다.
+`created_by` / `updated_by` 는 `SET_NULL` + `null=True` / `blank=True` 로 확정한다(P2-01.6).
 
-실제 필드 옵션은 모듈별 요구와 기존 사용자 모델 구조를 확인한 뒤 확정한다.
+```text
+- 시스템 생성 데이터, 초기 이관 데이터, 과거 데이터 대응이 가능하다.
+- 사용자 계정 삭제 등 예외 상황에서도 운영 데이터가 삭제되지 않는다(CASCADE 금지 원칙 준수).
+- SET_NULL 은 작성자 추적을 포기한다는 뜻이 아니다. 직원 계정은 삭제보다 is_active=False 비활성화가 기본이며,
+  FK 정책은 예외 상황의 운영 데이터 보존을 위해 SET_NULL 로 둔다.
+```
+
+`abstract = True` 이므로 OperationalBaseModel 자체는 DB 테이블을 만들지 않고, 이 모델 신설만으로는 migration 이 발생하지 않는다. 이를 상속하는 구체 모델(예: Notice)에서 공통 필드가 그 테이블에 포함되며, 그때 migration 이 발생한다.
 
 ---
 
