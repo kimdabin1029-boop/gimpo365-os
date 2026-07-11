@@ -1,10 +1,10 @@
-from django.db import IntegrityError, connection, transaction
+from django.db import IntegrityError, connection, models, transaction
 from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import Role
 from core.factories import DEFAULT_PASSWORD, BaseFixtureTestCase
-from core.models import Department
+from core.models import Department, OperationalBaseModel
 
 
 class DepartmentModelTest(TestCase):
@@ -26,6 +26,30 @@ class DepartmentModelTest(TestCase):
         self.assertTrue(dept.is_active)
         self.assertTrue(dept.active_for_inventory)
         self.assertEqual(dept.memo, "")
+
+
+class OperationalBaseModelTest(TestCase):
+    """공통 abstract base model 메타데이터 확인. (P2-01.5 / OS_TECH_SPEC §17)
+
+    구체 모델·DB 테이블을 새로 만들지 않고 클래스 메타데이터 수준에서만 확인한다.
+    """
+
+    def test_is_abstract(self):
+        """abstract = True 이어야 한다(자체 테이블 없음)."""
+        self.assertTrue(OperationalBaseModel._meta.abstract)
+
+    def test_has_expected_fields(self):
+        """공통 필드 5종이 정의되어 있다."""
+        field_names = {f.name for f in OperationalBaseModel._meta.get_fields()}
+        for name in ("created_at", "updated_at", "created_by", "updated_by", "is_active"):
+            self.assertIn(name, field_names)
+
+    def test_user_fks_are_set_null_and_nullable(self):
+        """created_by / updated_by 는 User 삭제 시 기록을 남기도록 SET_NULL·nullable 이다."""
+        for name in ("created_by", "updated_by"):
+            field = OperationalBaseModel._meta.get_field(name)
+            self.assertTrue(field.null)
+            self.assertEqual(field.remote_field.on_delete, models.SET_NULL)
 
 
 class DatabaseEngineTest(TestCase):
