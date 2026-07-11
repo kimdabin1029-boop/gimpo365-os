@@ -10,6 +10,7 @@ urlpatterns = [
     path("", include("core.urls")),
     path("accounts/", include("accounts.urls")),
     path("inventory/", include("inventory.urls")),
+    path("notices/", include("notice.urls")),
 ]
 
 # 개발환경(DEBUG=True)에서 /static/ (Django Admin CSS/JS 포함)을 staticfiles finders

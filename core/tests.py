@@ -105,10 +105,12 @@ class OSHomeViewTest(BaseFixtureTestCase):
 
 
 class ModulePlaceholderViewTest(BaseFixtureTestCase):
-    """미구현 모듈 '준비 중' placeholder 화면 확인. (Phase 1 / P1-04)"""
+    """미구현 모듈 '준비 중' placeholder 화면 확인. (Phase 1 / P1-04)
+
+    공지사항은 P2-01 에서 notice 앱으로 이관되어 여기서 제외한다(notice/tests.py 참조).
+    """
 
     PLACEHOLDER_NAMES = [
-        "notice_placeholder",
         "checklist_placeholder",
         "manual_placeholder",
         "request_placeholder",
@@ -117,18 +119,18 @@ class ModulePlaceholderViewTest(BaseFixtureTestCase):
 
     def test_anonymous_redirects_to_login(self):
         """비로그인 사용자는 로그인 화면으로 리다이렉트된다."""
-        response = self.client.get(reverse("notice_placeholder"))
+        response = self.client.get(reverse("checklist_placeholder"))
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("accounts:login"), response.url)
 
     def test_authenticated_shows_placeholder(self):
         """로그인 사용자는 준비 중 안내 화면을 200 으로 받는다."""
         self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
-        response = self.client.get(reverse("notice_placeholder"))
+        response = self.client.get(reverse("checklist_placeholder"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "core/module_placeholder.html")
         self.assertContains(response, "준비 중")
-        self.assertContains(response, "공지사항")
+        self.assertContains(response, "오픈/마감 체크리스트")
 
     def test_all_placeholders_render(self):
         """5개 placeholder URL 이 모두 준비 중 화면으로 연결된다."""
