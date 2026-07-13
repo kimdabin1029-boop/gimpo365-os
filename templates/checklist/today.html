@@ -28,8 +28,16 @@
         {% if entry.record.completed_by %}{{ entry.record.completed_by.display_name }}{% else %}완료자 정보 없음{% endif %}
         · {{ entry.record.completed_at|date:"H:i" }}
       </span>
+      <form method="post" action="{% url 'checklist:cancel' entry.department_item.pk %}" class="checklist-action">
+        {% csrf_token %}
+        <button type="submit" class="btn-secondary">완료 취소</button>
+      </form>
     {% else %}
       <span class="badge low">미완료</span>
+      <form method="post" action="{% url 'checklist:complete' entry.department_item.pk %}" class="checklist-action">
+        {% csrf_token %}
+        <button type="submit">완료</button>
+      </form>
     {% endif %}
   </li>
   {% endfor %}

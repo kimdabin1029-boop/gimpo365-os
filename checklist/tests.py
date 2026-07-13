@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.contrib import admin as django_admin
+from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, models, transaction
 from django.db.models import ProtectedError
 from django.urls import reverse
@@ -10,6 +11,11 @@ from accounts.models import Role
 from checklist.admin import ChecklistRecordAdmin
 from checklist.models import ChecklistItem, ChecklistRecord, DepartmentChecklistItem
 from checklist.selectors import get_today_checklist_items
+from checklist.services import (
+    ChecklistActionNotAllowed,
+    cancel_checklist_item,
+    complete_checklist_item,
+)
 from core.factories import (
     DEFAULT_PASSWORD,
     BaseFixtureTestCase,
@@ -254,12 +260,15 @@ class TodayChecklistViewTest(BaseFixtureTestCase):
         self.client.get(reverse("checklist:today"))
         self.assertEqual(ChecklistRecord.objects.count(), before)
 
-    def test_no_complete_form_or_button(self):
-        """완료/취소용 checkbox·form 이 없다(공통 navbar 의 로그아웃 form 은 무관). (P3-03 §6)"""
+    def test_completion_uses_post_button_not_checkbox(self):
+        """완료/취소는 checkbox 자동 전송이 아니라 POST 버튼이다. (P3-04 §10)
+
+        POST form 자체는 P3-04 에서 추가되며(ChecklistCompletionViewTest 에서 검증),
+        여기서는 checkbox 방식이 아님만 확인한다.
+        """
         self._login("staff_skin")
         response = self.client.get(reverse("checklist:today"))
         self.assertNotContains(response, 'type="checkbox"')
-        self.assertNotContains(response, 'action="/checklists/')
 
     def test_home_card_still_preparing_and_no_sidebar_link(self):
         """OS 홈 카드 준비 중 유지 + sidebar 에 체크리스트 링크 없음. (P3-03 §8)"""
@@ -441,3 +450,299 @@ class ChecklistAdminTest(BaseFixtureTestCase):
         record_admin = ChecklistRecordAdmin(ChecklistRecord, django_admin.site)
         self.assertFalse(record_admin.has_add_permission(None))
         self.assertFalse(record_admin.has_delete_permission(None))
+
+    def test_record_admin_is_active_readonly(self):
+        record_admin = ChecklistRecordAdmin(ChecklistRecord, django_admin.site)
+        self.assertIn("is_active", record_admin.readonly_fields)
+
+
+class ChecklistCompletionServiceTest(BaseFixtureTestCase):
+    """complete/cancel service 확인. (P3-04 / CHECKLIST_TECH_SPEC §11)"""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.today = timezone.localdate()
+        cls.skin_a = create_user("qa_skin_a", role=Role.STAFF, department=cls.dept_skin)
+        cls.skin_b = create_user("qa_skin_b", role=Role.STAFF, department=cls.dept_skin)
+        cls.skin_leader = create_user(
+            "qa_skin_leader", role=Role.TEAM_LEADER, department=cls.dept_skin
+        )
+        cls.skin_manager = create_user(
+            "qa_skin_mgr", role=Role.MANAGER, department=cls.dept_skin
+        )
+        cls.skin_admin = create_user(
+            "qa_skin_admin", role=Role.ADMIN, department=cls.dept_skin
+        )
+        cls.no_dept = create_user("qa_nodept3", role=Role.STAFF, department=None)
+        cls.inactive_dept = create_department("폐과", is_active=False)
+        cls.inactive_dept_user = create_user(
+            "qa_inact", role=Role.STAFF, department=cls.inactive_dept
+        )
+
+        cls.item = ChecklistItem.objects.create(title="가 daily")
+        cls.assign = DepartmentChecklistItem.objects.create(
+            item=cls.item, department=cls.dept_skin
+        )
+        cls.treat_assign = DepartmentChecklistItem.objects.create(
+            item=ChecklistItem.objects.create(title="나 daily"),
+            department=cls.dept_treatment,
+        )
+        cls.inactive_item_assign = DepartmentChecklistItem.objects.create(
+            item=ChecklistItem.objects.create(title="다 항목", is_active=False),
+            department=cls.dept_skin,
+        )
+        cls.inactive_assign = DepartmentChecklistItem.objects.create(
+            item=ChecklistItem.objects.create(title="라 daily"),
+            department=cls.dept_skin,
+            is_active=False,
+        )
+        cls.weekly_assign = DepartmentChecklistItem.objects.create(
+            item=ChecklistItem.objects.create(
+                title="마 weekly", frequency=ChecklistItem.Frequency.WEEKLY
+            ),
+            department=cls.dept_skin,
+        )
+        cls.monthly_assign = DepartmentChecklistItem.objects.create(
+            item=ChecklistItem.objects.create(
+                title="바 monthly", frequency=ChecklistItem.Frequency.MONTHLY
+            ),
+            department=cls.dept_skin,
+        )
+
+    def _get_record(self):
+        return ChecklistRecord.objects.get(department_item=self.assign, date=self.today)
+
+    # --- 완료 ---
+    def test_first_complete_creates_record(self):
+        record, changed = complete_checklist_item(
+            user=self.skin_a, department_item=self.assign
+        )
+        self.assertTrue(changed)
+        self.assertEqual(record.date, self.today)
+        self.assertEqual(record.completed_by_id, self.skin_a.id)
+        self.assertEqual(record.created_by_id, self.skin_a.id)
+        self.assertEqual(record.updated_by_id, self.skin_a.id)
+        self.assertTrue(record.is_active)
+        self.assertIsNotNone(record.completed_at.tzinfo)
+        self.assertEqual(ChecklistRecord.objects.count(), 1)
+
+    def test_already_completed_is_idempotent(self):
+        complete_checklist_item(user=self.skin_a, department_item=self.assign)
+        record, changed = complete_checklist_item(
+            user=self.skin_b, department_item=self.assign
+        )
+        self.assertFalse(changed)
+        # 최초 수행자 정보 유지(덮어쓰지 않음)
+        self.assertEqual(record.completed_by_id, self.skin_a.id)
+        self.assertEqual(ChecklistRecord.objects.count(), 1)
+
+    def test_recomplete_reactivates_same_record(self):
+        rec1, _ = complete_checklist_item(user=self.skin_a, department_item=self.assign)
+        cancel_checklist_item(user=self.skin_b, department_item=self.assign)
+        rec2, changed = complete_checklist_item(
+            user=self.skin_b, department_item=self.assign
+        )
+        self.assertTrue(changed)
+        self.assertEqual(rec1.pk, rec2.pk)  # 같은 행 재사용
+        rec2.refresh_from_db()
+        self.assertTrue(rec2.is_active)
+        self.assertEqual(rec2.completed_by_id, self.skin_b.id)  # 재완료자
+        self.assertEqual(rec2.created_by_id, self.skin_a.id)  # 최초 생성자 유지
+        self.assertEqual(rec2.updated_by_id, self.skin_b.id)
+        self.assertEqual(ChecklistRecord.objects.count(), 1)
+
+    # --- 취소 ---
+    def test_cancel_deactivates_and_preserves_completion(self):
+        complete_checklist_item(user=self.skin_a, department_item=self.assign)
+        record, changed = cancel_checklist_item(
+            user=self.skin_b, department_item=self.assign
+        )
+        self.assertTrue(changed)
+        record.refresh_from_db()
+        self.assertFalse(record.is_active)
+        self.assertEqual(record.completed_by_id, self.skin_a.id)  # 원 완료자 보존
+        self.assertIsNotNone(record.completed_at)  # 완료 시각 보존
+        self.assertEqual(record.created_by_id, self.skin_a.id)
+        self.assertEqual(record.updated_by_id, self.skin_b.id)  # 취소 사용자
+
+    def test_cancel_without_record_is_noop(self):
+        record, changed = cancel_checklist_item(
+            user=self.skin_a, department_item=self.assign
+        )
+        self.assertIsNone(record)
+        self.assertFalse(changed)
+        self.assertEqual(ChecklistRecord.objects.count(), 0)
+
+    def test_repeated_cancel_is_idempotent(self):
+        complete_checklist_item(user=self.skin_a, department_item=self.assign)
+        cancel_checklist_item(user=self.skin_b, department_item=self.assign)
+        _, changed = cancel_checklist_item(
+            user=self.skin_a, department_item=self.assign
+        )
+        self.assertFalse(changed)
+        self.assertEqual(ChecklistRecord.objects.count(), 1)
+
+    # --- 멱등/단일 레코드 ---
+    def test_repeated_complete_keeps_single_record(self):
+        for user in (self.skin_a, self.skin_b, self.skin_a):
+            complete_checklist_item(user=user, department_item=self.assign)
+        self.assertEqual(ChecklistRecord.objects.count(), 1)
+
+    # --- 권한 (403) ---
+    def test_all_roles_in_active_department_can_complete(self):
+        for user in (self.skin_a, self.skin_leader, self.skin_manager, self.skin_admin):
+            cancel_checklist_item(user=user, department_item=self.assign)  # 초기화
+            record, changed = complete_checklist_item(
+                user=user, department_item=self.assign
+            )
+            self.assertTrue(changed)
+            self.assertEqual(record.completed_by_id, user.id)
+
+    def test_other_department_forbidden(self):
+        with self.assertRaises(PermissionDenied):
+            complete_checklist_item(user=self.skin_a, department_item=self.treat_assign)
+        with self.assertRaises(PermissionDenied):
+            cancel_checklist_item(user=self.skin_a, department_item=self.treat_assign)
+
+    def test_no_department_forbidden(self):
+        with self.assertRaises(PermissionDenied):
+            complete_checklist_item(user=self.no_dept, department_item=self.assign)
+
+    def test_inactive_department_forbidden(self):
+        with self.assertRaises(PermissionDenied):
+            complete_checklist_item(
+                user=self.inactive_dept_user, department_item=self.assign
+            )
+
+    # --- 처리 대상 아님 (도메인 예외) ---
+    def test_inactive_assignment_not_allowed(self):
+        with self.assertRaises(ChecklistActionNotAllowed):
+            complete_checklist_item(user=self.skin_a, department_item=self.inactive_assign)
+
+    def test_inactive_item_not_allowed(self):
+        with self.assertRaises(ChecklistActionNotAllowed):
+            complete_checklist_item(
+                user=self.skin_a, department_item=self.inactive_item_assign
+            )
+
+    def test_weekly_not_allowed(self):
+        with self.assertRaises(ChecklistActionNotAllowed):
+            complete_checklist_item(user=self.skin_a, department_item=self.weekly_assign)
+
+    def test_monthly_not_allowed(self):
+        with self.assertRaises(ChecklistActionNotAllowed):
+            complete_checklist_item(user=self.skin_a, department_item=self.monthly_assign)
+
+    def test_target_date_param(self):
+        yesterday = self.today - timedelta(days=1)
+        record, _ = complete_checklist_item(
+            user=self.skin_a, department_item=self.assign, target_date=yesterday
+        )
+        self.assertEqual(record.date, yesterday)
+
+    # --- 팀 단위 행동 ---
+    def test_team_flow_a_completes_b_cancels_and_recompletes(self):
+        complete_checklist_item(user=self.skin_a, department_item=self.assign)  # A 완료
+        cancel_checklist_item(user=self.skin_b, department_item=self.assign)  # B 취소
+        record = self._get_record()
+        self.assertFalse(record.is_active)
+        self.assertEqual(record.completed_by_id, self.skin_a.id)  # 취소 후에도 A
+        self.assertEqual(record.updated_by_id, self.skin_b.id)  # 취소자 B
+        complete_checklist_item(user=self.skin_b, department_item=self.assign)  # B 재완료
+        record.refresh_from_db()
+        self.assertTrue(record.is_active)
+        self.assertEqual(record.completed_by_id, self.skin_b.id)  # 재완료자 B
+        self.assertEqual(ChecklistRecord.objects.count(), 1)  # 항상 1개
+
+
+class ChecklistCompletionViewTest(BaseFixtureTestCase):
+    """완료/취소 POST view 및 오늘 화면 버튼 확인. (P3-04)"""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.skin_a = create_user("qa_v_skin_a", role=Role.STAFF, department=cls.dept_skin)
+        cls.item_todo = ChecklistItem.objects.create(title="미완료 항목")
+        cls.item_done = ChecklistItem.objects.create(title="완료 항목")
+        cls.a_todo = DepartmentChecklistItem.objects.create(
+            item=cls.item_todo, department=cls.dept_skin, sort_order=0
+        )
+        cls.a_done = DepartmentChecklistItem.objects.create(
+            item=cls.item_done, department=cls.dept_skin, sort_order=1
+        )
+        cls.treat_assign = DepartmentChecklistItem.objects.create(
+            item=ChecklistItem.objects.create(title="치료실 항목"),
+            department=cls.dept_treatment,
+        )
+        cls.inactive_item_assign = DepartmentChecklistItem.objects.create(
+            item=ChecklistItem.objects.create(title="비활성 항목", is_active=False),
+            department=cls.dept_skin,
+        )
+
+    def _login(self, username):
+        self.client.login(username=username, password=DEFAULT_PASSWORD)
+
+    def _complete_url(self, assign):
+        return reverse("checklist:complete", args=[assign.pk])
+
+    def _cancel_url(self, assign):
+        return reverse("checklist:cancel", args=[assign.pk])
+
+    def test_anonymous_post_redirects_login(self):
+        response = self.client.post(self._complete_url(self.a_todo))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("accounts:login"), response.url)
+
+    def test_complete_get_is_405(self):
+        self._login("qa_v_skin_a")
+        response = self.client.get(self._complete_url(self.a_todo))
+        self.assertEqual(response.status_code, 405)
+
+    def test_cancel_get_is_405(self):
+        self._login("qa_v_skin_a")
+        response = self.client.get(self._cancel_url(self.a_todo))
+        self.assertEqual(response.status_code, 405)
+
+    def test_complete_post_redirects_to_today(self):
+        self._login("qa_v_skin_a")
+        response = self.client.post(self._complete_url(self.a_todo))
+        self.assertRedirects(response, reverse("checklist:today"))
+
+    def test_cancel_post_redirects_to_today(self):
+        self._login("qa_v_skin_a")
+        self.client.post(self._complete_url(self.a_todo))
+        response = self.client.post(self._cancel_url(self.a_todo))
+        self.assertRedirects(response, reverse("checklist:today"))
+
+    def test_today_shows_complete_and_cancel_buttons(self):
+        self._login("qa_v_skin_a")
+        self.client.post(self._complete_url(self.a_done))  # a_done 완료 상태로
+        response = self.client.get(reverse("checklist:today"))
+        self.assertContains(response, "csrfmiddlewaretoken")
+        self.assertContains(response, 'action="%s"' % self._complete_url(self.a_todo))
+        self.assertContains(response, 'action="%s"' % self._cancel_url(self.a_done))
+
+    def test_post_changes_completion_state(self):
+        self._login("qa_v_skin_a")
+        self.assertFalse(
+            ChecklistRecord.objects.filter(
+                department_item=self.a_todo, is_active=True
+            ).exists()
+        )
+        self.client.post(self._complete_url(self.a_todo))
+        self.assertTrue(
+            ChecklistRecord.objects.filter(
+                department_item=self.a_todo, date=timezone.localdate(), is_active=True
+            ).exists()
+        )
+
+    def test_other_department_post_is_403(self):
+        self._login("qa_v_skin_a")
+        response = self.client.post(self._complete_url(self.treat_assign))
+        self.assertEqual(response.status_code, 403)
+
+    def test_inactive_item_post_is_404(self):
+        self._login("qa_v_skin_a")
+        response = self.client.post(self._complete_url(self.inactive_item_assign))
+        self.assertEqual(response.status_code, 404)

@@ -36,8 +36,8 @@ class DepartmentChecklistItemAdmin(_AuditAdminMixin, admin.ModelAdmin):
 class ChecklistRecordAdmin(admin.ModelAdmin):
     """완료 기록은 OS service(P3-04)가 관리하는 운영 기록이다.
 
-    admin 에서는 확인 중심으로만 둔다: 신규 추가/삭제 금지, 운영 필드 읽기 전용.
-    완료/취소의 정상 경로는 P3-04 의 OS 화면/service 다(is_active 만 예외적으로 조정 가능).
+    admin 에서는 확인 전용: 신규 추가/삭제 금지, 모든 필드 읽기 전용.
+    완료/취소의 정상 경로는 P3-04 의 OS 화면/service 다(is_active 포함 직접 수정 불가).
     """
 
     list_display = ["date", "department_item", "completed_by", "completed_at", "is_active"]
@@ -52,6 +52,7 @@ class ChecklistRecordAdmin(admin.ModelAdmin):
         "date",
         "completed_by",
         "completed_at",
+        "is_active",
         "created_at",
         "updated_at",
         "created_by",

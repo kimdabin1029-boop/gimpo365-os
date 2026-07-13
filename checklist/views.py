@@ -1,14 +1,24 @@
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import Http404
+from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
+from django.views import View
 from django.views.generic import TemplateView
 
+from checklist.models import ChecklistItem, DepartmentChecklistItem
 from checklist.selectors import get_today_checklist_items
+from checklist.services import (
+    ChecklistActionNotAllowed,
+    cancel_checklist_item,
+    complete_checklist_item,
+)
 
 
 class TodayChecklistView(LoginRequiredMixin, TemplateView):
     """오늘의 내 부서 체크리스트 조회 화면. (P3-03 / CHECKLIST_TECH_SPEC §12)
 
-    조회 전용이다. 완료/취소 동작(POST)은 P3-04 에서 추가한다.
+    조회 + 완료/취소 버튼 노출. 실제 상태 변경은 POST 전용 view(P3-04)가 담당한다.
     STAFF/TEAM_LEADER/MANAGER/ADMIN 모두 본인 소속 Department 항목만 본다
     (전체 부서 누락 현황은 P3-05 에서 별도 구현).
     """
@@ -34,3 +44,55 @@ class TodayChecklistView(LoginRequiredMixin, TemplateView):
             }
         )
         return context
+
+
+def _get_today_assignment_or_404(department_item_pk):
+    """오늘 처리 가능한(활성 배정·활성 항목·daily) 배정만 조회한다.
+
+    비활성 배정/항목·weekly/monthly 는 처리 대상이 아니므로 404. 부서 일치는 service 가
+    PermissionDenied(403)로 검증한다(타 부서 배정은 여기서 404 로 감추지 않는다).
+    """
+    return get_object_or_404(
+        DepartmentChecklistItem.objects.select_related("item", "department").filter(
+            is_active=True,
+            item__is_active=True,
+            item__frequency=ChecklistItem.Frequency.DAILY,
+        ),
+        pk=department_item_pk,
+    )
+
+
+class CompleteChecklistItemView(LoginRequiredMixin, View):
+    """오늘 항목 완료 처리(POST 전용). (P3-04)"""
+
+    def post(self, request, department_item_pk):
+        department_item = _get_today_assignment_or_404(department_item_pk)
+        try:
+            _, changed = complete_checklist_item(
+                user=request.user, department_item=department_item
+            )
+        except ChecklistActionNotAllowed:
+            raise Http404("처리할 수 없는 항목입니다.")
+        if changed:
+            messages.success(request, "체크리스트를 완료했습니다.")
+        else:
+            messages.info(request, "이미 완료된 체크리스트입니다.")
+        return redirect("checklist:today")
+
+
+class CancelChecklistItemView(LoginRequiredMixin, View):
+    """오늘 항목 완료 취소(POST 전용). (P3-04)"""
+
+    def post(self, request, department_item_pk):
+        department_item = _get_today_assignment_or_404(department_item_pk)
+        try:
+            _, changed = cancel_checklist_item(
+                user=request.user, department_item=department_item
+            )
+        except ChecklistActionNotAllowed:
+            raise Http404("처리할 수 없는 항목입니다.")
+        if changed:
+            messages.success(request, "체크리스트 완료를 취소했습니다.")
+        else:
+            messages.info(request, "이미 미완료 상태입니다.")
+        return redirect("checklist:today")
