@@ -6,8 +6,8 @@
 
 ```text
 문서명: CHECKLIST_TECH_SPEC.md
-문서 범위: 김포365OS Module 3 — Checklist 기술 구현 기준 (설계)
-문서 상태: P3-00 설계 초안 (코드 미작성)
+문서 범위: 김포365OS Module 3 — Checklist 기술 구현 기준
+문서 상태: Checklist v1 구현 완료 (Phase 3 마감, P3-07). 본 문서의 설계는 실제 구현과 일치한다.
 전제 문서: OS_TECH_SPEC.md, OS_ARCHITECTURE.md, OS_WORKING_RULES.md, CHECKLIST_PRODUCT_SPEC.md, NOTICE_TECH_SPEC.md
 ```
 
@@ -15,6 +15,7 @@
 
 | 버전   | 수정일        | 변경 요약                                       |
 | ---- | ---------- | ------------------------------------------- |
+| v0.2 | 2026-07-14 | Checklist v1 구현 완료 반영. §21 확정 대상 해소(실제 함수명/URL/mixin 확정) |
 | v0.1 | 2026-07-13 | P3-00 Checklist v1 기술 설계 초안 (3모델·daily selector·KST) |
 
 ---
@@ -393,13 +394,24 @@ selector:
 
 ---
 
-## 21. 구현 단계 확정 대상 요약
+## 21. 구현 확정 결과 (P3-07 기준 — 모두 해소)
 
 ```text
-[확정필요] 정확한 URL 이름/구조 (today/complete/uncomplete/status)
-[확정필요] 완료/취소를 service 로 분리할지 view 내 처리할지
-[확정필요] status 권한을 TeamLeaderRequiredMixin 신설 vs 뷰 내 has_role_at_least
-[확정필요] MANAGER/ADMIN 완료 대행 예외 허용 여부 (기본 불허, P3-04 전 결정)
-[확정] 3모델 / frequency 필드 / daily 우선 / 승인 없음 / 첨부 없음 / 개인 담당자 없음 (P3-00 확정)
-[승인게이트] P3-02 3모델 migration (리허설 한정, 별도 승인)
+[확정] URL(checklist namespace):
+       /checklists/                         name="today"    (TodayChecklistView)
+       /checklists/status/                  name="status"   (ChecklistStatusView)
+       /checklists/<pk>/complete/           name="complete" (CompleteChecklistItemView, POST)
+       /checklists/<pk>/cancel/             name="cancel"   (CancelChecklistItemView, POST)
+[확정] service 분리 = checklist/services.py:
+       complete_checklist_item / cancel_checklist_item (반환 (record, changed)),
+       도메인 예외 ChecklistActionNotAllowed, transaction.atomic + select_for_update.
+[확정] selector = checklist/selectors.py:
+       get_today_checklist_items(→TodayChecklistEntry, 최대 2쿼리),
+       get_checklist_status_for_user(→DepartmentChecklistStatus, 최대 3쿼리).
+[확정] status 권한 = accounts.mixins.TeamLeaderRequiredMixin (신설). 범위는 selector 가 role 로 강제.
+[확정] MANAGER/ADMIN 완료 대행 = 불허(타 부서 완료 시 PermissionDenied/403).
+[확정] 3모델 / frequency 필드 / daily 우선 / 승인 없음 / 첨부 없음 / 개인 담당자 없음.
+[완료] P3-02 3모델 migration(checklist.0001_initial) 리허설 DB 적용.
+[확정] 완료 취소 감사: is_active=False + updated_by=취소자, completed_by/at 보존.
+       재완료: 같은 레코드 재활성화 + completed_by/at 갱신(created_by 유지).
 ```

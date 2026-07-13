@@ -7,7 +7,7 @@
 ```text
 문서명: CHECKLIST_TASKS.md
 문서 범위: 김포365OS Module 3 — Checklist 구현 작업 단위 분리
-문서 상태: P3-00 설계 초안
+문서 상태: Checklist v1 구현 완료 (Phase 3 마감, P3-07). 배포 후보 점검(P3-08)만 남음.
 전제 문서: CHECKLIST_PRODUCT_SPEC.md, CHECKLIST_TECH_SPEC.md, OS_WORKING_RULES.md
 ```
 
@@ -15,6 +15,7 @@
 
 | 버전   | 수정일        | 변경 요약                          |
 | ---- | ---------- | ------------------------------ |
+| v0.2 | 2026-07-14 | Checklist v1 구현 완료 반영(P3-00~P3-07 [x], P3-08 배포 후보 점검만 남음). 사용자 인수 테스트 항목 추가 |
 | v0.1 | 2026-07-13 | P3-00 Checklist 구현 작업 단위 분리 초안 |
 
 ---
@@ -36,21 +37,22 @@ Notice / Inventory 기능을 깨지 않는다. inventory 코드는 건드리지 
 
 ---
 
-## 1. 작업 단위 개요
+## 1. 작업 단위 개요 및 완료 상태 (P3-07 기준)
 
 ```text
-P3-00  Checklist 큰그림 + 문서 설계                     [문서]  ← 현재 작업
-P3-01  checklist 앱 뼈대 생성 + /checklists/ placeholder 이관   [코드]
-P3-02  3모델 생성 및 migration                          [코드+migration/승인]
-P3-03  오늘의 체크리스트 조회 (내 부서 daily, selector)      [코드]
-P3-04  완료 / 취소 처리                                  [코드]
-P3-05  TEAM_LEADER 이상 누락 현황                         [코드]
-P3-06  OS 홈 / sidebar 실사용 진입                        [코드]
-P3-07  전체 QA 및 Phase 3 마감                            [QA/문서]
-P3-08  배포 후보 점검                                    [운영 점검]
+[x] P3-00  Checklist 큰그림 + 문서 설계
+[x] P3-01  checklist 앱 뼈대 생성 + /checklists/ placeholder 이관
+[x] P3-02  3모델 생성 및 migration (리허설 DB 적용)
+[x] P3-03  오늘의 체크리스트 조회 (내 부서 daily, selector)
+[x] P3-04  완료 / 취소 처리 (service, 멱등·재활성, 트랜잭션)
+[x] P3-05  TEAM_LEADER 이상 누락 현황
+[x] P3-06  OS 홈 / sidebar 실사용 진입
+[x] P3-07  전체 QA 및 Phase 3 마감 (이 커밋)
+[ ] P3-08  배포 후보 점검 (구현 완료 아님 — 다빈 인수 테스트·피드백 이후 별도 진행)
 ```
 
-Phase 3는 Notice보다 모델·selector가 복잡하므로 단계를 억지로 합치지 않는다.
+Checklist v1 은 P3-00~P3-07 로 구현 완료되었고, OS MVP 컷라인(재고관리 + 공지사항 + 체크리스트)에
+도달했다. Phase 3 완료 = 기능 MVP 컷라인 도달이며, 실제 운영 배포 가능 여부는 P3-08 에서 검증한다.
 
 ---
 
@@ -195,9 +197,30 @@ migration 성격: 신규 테이블 3개 + FK + UniqueConstraint (additive, rever
 ## 2. 승인·리스크 게이트 요약
 
 ```text
-migration(P3-02): 다빈 명시적 승인 + 리허설 DB 한정. 신규 테이블 3개(additive).
-완료 대행 예외(P3-04): 기본 불허, 필요 시 P3-04 전 별도 결정.
-누락 현황 권한 mixin(P3-05): TeamLeaderRequiredMixin 신설 vs 뷰 내 검사 — 결정 후 진행.
+migration(P3-02): 다빈 명시적 승인 + 리허설 DB 한정. 신규 테이블 3개(additive). → 완료.
+완료 대행 예외(P3-04): 기본 불허로 확정(타 부서 완료 시 PermissionDenied/403).
+누락 현황 권한 mixin(P3-05): accounts.mixins.TeamLeaderRequiredMixin 신설로 확정.
 운영 반영: 리허설 검증 → 백업 → 승인 후. Claude Code 임의 반영 금지.
-inventory 코드: 이번 Phase 내내 수정 금지.
+inventory 코드: 이번 Phase 내내 수정하지 않음.
 ```
+
+---
+
+## 3. 사용자 인수 테스트 (P3-08 전, 다빈 직접 수행)
+
+아래 항목을 리허설 환경에서 직접 수행해 확인한다. 이 인수 테스트 통과 후 P3-08 배포 후보 점검으로 넘어간다.
+
+```text
+1.  Django admin 에서 ChecklistItem(항목) 정의 (frequency=daily)
+2.  DepartmentChecklistItem 으로 항목을 실제 부서에 배정 (sort_order 지정)
+3.  해당 부서 직원 계정으로 /checklists/ 오늘 화면 확인 (미완료 표시)
+4.  항목 완료 (완료자·완료 시각 기록 확인)
+5.  같은 부서 다른 직원 계정으로 완료 상태가 공유되는지 확인
+6.  완료 취소 (미완료 전환, 원 완료자 정보는 기록상 보존)
+7.  재완료 (같은 날짜 레코드 1개 유지, 완료자 갱신)
+8.  TEAM_LEADER 계정으로 /checklists/status/ 본인 부서 누락 확인
+9.  MANAGER 계정으로 전체 활성 부서 누락 현황 확인
+10. daily 배정이 없는 활성 부서가 "항목 없음"으로 구분되는지 확인
+```
+
+주의: 완료/취소는 실제 수행자가 직접 한다(대신 완료 없음). 타 부서 항목 완료 시도는 거부(403)된다.

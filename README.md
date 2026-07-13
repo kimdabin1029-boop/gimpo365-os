@@ -18,10 +18,10 @@
 
 ## 2. 현재 상태
 
-- **Phase 1 진행 중** — OS 최소 틀 단계
-- 완료: OS 홈 / 공통 shell(base·navbar·sidebar) / 운영관리 > 재고관리 메뉴 배치 / 준비 중 모듈 placeholder
-- **Inventory Module은 현재 사용 가능한 기준 모듈**이다
-- 나머지 모듈은 OS 홈에 "준비 중" placeholder로만 노출된다(실제 기능 없음)
+- **Phase 3 완료 · OS MVP 컷라인 도달** — 재고관리 + 공지사항 + 체크리스트가 실사용 가능하다
+- 완료: OS 홈 / 공통 shell(base·navbar·sidebar) / Department + role 조직 기준 / 재고관리 / 공지사항 / 오픈·마감 체크리스트
+- 준비 중(placeholder): SOP/업무 매뉴얼, 내부 요청/결재, 근태/근무표
+- Phase 3 완료는 기능 MVP 컷라인 도달을 뜻하며, 실제 운영 배포 가능 여부는 배포 후보 점검(P3-08)에서 검증한다
 - 단계별 계획은 [OS_ROADMAP.md](OS_ROADMAP.md), 작업 상태는 [OS_TASKS.md](OS_TASKS.md) 참고
 
 ## 3. 주요 모듈
@@ -29,14 +29,16 @@
 | 모듈 | 상태 |
 |---|---|
 | 운영관리 > 재고관리 | **사용 가능** |
-| 공지사항 | 준비 중 |
-| 오픈/마감 체크리스트 | 준비 중 |
+| 공지사항 | **사용 가능** |
+| 오픈/마감 체크리스트 | **사용 가능** |
 | SOP/업무 매뉴얼 | 준비 중 |
 | 내부 요청/결재 | 준비 중 |
 | 근태/근무표 | 준비 중 |
 
 재고관리는 입고·출고·초기재고·실사조정·주문·부분입고·거래이력·재고현황·관리자 리포트·기준정보 점검을 다룬다.
-재고관리 상세는 [docs/modules/inventory/](docs/modules/inventory/)의 `INVENTORY_*.md` 문서를 따른다.
+공지사항은 전체/부서 대상 공지 등록·조회(MANAGER 이상 작성)를 다룬다.
+체크리스트는 부서별 daily 정기업무의 수행자 완료·취소와 TEAM_LEADER 이상 누락 확인을 다룬다(현재 daily만 실행).
+모듈 상세는 [docs/modules/inventory/](docs/modules/inventory/) · [docs/modules/notice/](docs/modules/notice/) · [docs/modules/checklist/](docs/modules/checklist/)의 문서를 따른다.
 
 ## 4. 실행 전 안전 원칙
 
@@ -105,5 +107,7 @@ Copy-Item .env.example .env
 | [OS_TASKS.md](OS_TASKS.md) | 작업 순서 · 진행 상태 |
 | [docs/CODE_RECONCILIATION_REPORT.md](docs/CODE_RECONCILIATION_REPORT.md) | 코드-문서 정합 점검 보고 |
 | [docs/modules/inventory/](docs/modules/inventory/) | Inventory Module 문서(`INVENTORY_*.md`) |
+| [docs/modules/notice/](docs/modules/notice/) | Notice Module 문서(`NOTICE_*.md`) |
+| [docs/modules/checklist/](docs/modules/checklist/) | Checklist Module 문서(`CHECKLIST_*.md`) |
 
 > 이 저장소는 public 전제로 관리한다. 커밋 메시지·주석·문서·이슈에 직원 개인정보나 운영 상세, 비밀값을 넣지 않는다.

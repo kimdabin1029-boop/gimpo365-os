@@ -297,10 +297,10 @@ POSTGRES_DB=gimpo365_inventory
 특히 Checklist Module은 다음 개념을 사용한다.
 
 ```text
-당일 마감담당자
+당일 실제 수행자 (사전 지정 아님 — 그날 완료한 직원을 completed_by 로 기록)
 완료 시간
-마감 일자
-파트별 일일 업무 기록
+기준 일자 (KST 로컬 날짜)
+부서별 일일 업무 기록
 ```
 
 따라서 날짜와 시간 기준을 명확히 한다.
@@ -1173,27 +1173,27 @@ Notice가 비대해져 Checklist 착수를 지연시키면 안 된다.
 
 ## 25. Checklist Module 기술 기준
 
-Checklist Module은 김포365OS MVP의 핵심 모듈이다.
+Checklist Module은 김포365OS MVP의 핵심 모듈이다. **Phase 3(v1) 구현 완료.**
+
+> 구현 요약 (상세: docs/modules/checklist/CHECKLIST_TECH_SPEC.md):
+> - 앱: `checklist` (namespace `checklist`). 3모델 ChecklistItem / DepartmentChecklistItem /
+>   ChecklistRecord, 모두 core.OperationalBaseModel 상속. UniqueConstraint(item, department),
+>   (department_item, date). FK 는 PROTECT(및 completed_by=SET_NULL), CASCADE 없음.
+> - URL: `/checklists/`(today) · `/checklists/status/`(status) · `/checklists/<pk>/complete|cancel/`(POST).
+> - selector: get_today_checklist_items(2쿼리), get_checklist_status_for_user(3쿼리).
+> - service: complete/cancel_checklist_item (transaction.atomic + select_for_update, 멱등·재활성).
+> - 권한: 완료/취소는 본인 활성 부서만(타 부서 403). 누락 현황은 accounts.mixins.TeamLeaderRequiredMixin
+>   (STAFF 403, TEAM_LEADER 본인 부서, MANAGER/ADMIN 전체 활성 부서).
+> - 날짜: timezone.localdate() (KST). 완료 취소는 hard delete 가 아니라 is_active=False.
 
 Checklist는 전 직원의 일일 사용 습관과 직접 연결된다.
-
-Checklist 작업 전 선행 조건:
-
-```text
-OS 홈
-공통 sidebar/navbar
-Department/Team 소속 기준
-개인 계정 원칙
-리허설 DB 검증 흐름
-Timezone 기준
-```
 
 Checklist 기본 기준:
 
 ```text
-기록 단위: User
-운영 단위: Department / Team
-책임 확인 단위: 당일 마감담당자
+기록 단위: User (completed_by = 그날 실제 수행자)
+운영 단위: Department
+책임 확인 단위: 당일 실제 수행자 (사전 지정 아님)
 ```
 
 초기 기능 후보:

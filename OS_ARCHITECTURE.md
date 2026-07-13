@@ -553,13 +553,20 @@ User는 최소 하나의 주 소속 Department/Team을 가진다.
 
 마감담당자는 김포365OS의 중요한 운영 단위이다.
 
-운영 단위는 팀 또는 파트이고, 기록 단위는 개인 계정이다.
+운영 단위는 부서(Department)이고, 기록 단위는 개인 계정이다.
+`당일 마감담당자`는 사전에 지정된 개인이 아니라 **그날 실제로 업무를 수행한 직원**을 뜻한다
+(Checklist는 항목을 개인에게 사전 배정하지 않고 그날 완료한 사람을 completed_by로 기록한다).
 
 ```text
-운영 단위: Department / Team
+운영 단위: Department
 기록 단위: User
-책임 확인 단위: 당일 마감담당자
+책임 확인 단위: 당일 실제 수행자 (사전 지정 아님)
 ```
+
+> Checklist Module(Phase 3, v1) 구현 완료: checklist 앱 — ChecklistItem / DepartmentChecklistItem /
+> ChecklistRecord (core.OperationalBaseModel 상속), selector·service 분리, Department 단위 접근제어,
+> KST timezone.localdate() 기준, 완료 취소는 hard delete 가 아니라 is_active=False. 상세는
+> docs/modules/checklist/CHECKLIST_*.md. (더 이상 placeholder/준비 중 모듈이 아니다.)
 
 ---
 
