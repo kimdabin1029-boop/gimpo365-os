@@ -273,15 +273,21 @@ class TodayChecklistViewTest(BaseFixtureTestCase):
         response = self.client.get(reverse("checklist:today"))
         self.assertNotContains(response, 'type="checkbox"')
 
-    def test_home_card_still_preparing_and_no_sidebar_link(self):
-        """OS 홈 카드 준비 중 유지 + sidebar 에 체크리스트 링크 없음. (P3-03 §8)"""
+    def test_checklist_active_on_home_and_sidebar(self):
+        """P3-06 실사용 전환: 홈 카드 활성(준비 중 아님) + sidebar 체크리스트 링크 존재.
+
+        홈 카드·sidebar 상세는 core.tests 에서 검증한다. 여기서는 이관 화면 기준만 확인.
+        """
         self._login("staff_skin")
         home = self.client.get(reverse("home"))
-        self.assertContains(home, 'disabled" href="%s"' % reverse("checklist:today"))
-        page = self.client.get(reverse("checklist:today"))
-        self.assertNotContains(page, 'class="sidebar-link" href="/checklists/"')
+        self.assertContains(home, reverse("checklist:today"))
         self.assertNotContains(
-            page, 'class="sidebar-link active" aria-current="page" href="/checklists/"'
+            home, 'disabled" href="%s"' % reverse("checklist:today")
+        )
+        page = self.client.get(reverse("checklist:today"))
+        # /checklists/ 에서 사이드바 체크리스트 메뉴 active
+        self.assertContains(
+            page, 'aria-current="page" href="%s"' % reverse("checklist:today")
         )
 
 
@@ -1010,5 +1016,29 @@ class ChecklistStatusViewTest(_StatusDataMixin, BaseFixtureTestCase):
 
     def test_team_leader_today_has_status_link(self):
         self._login("qa_treat_leader")
+        response = self.client.get(reverse("checklist:today"))
+        self.assertContains(response, reverse("checklist:status"))
+
+    def test_nodept_team_leader_today_has_no_status_link(self):
+        """무소속 팀장은 오늘 화면에 현황 링크가 없다(클릭해도 403이므로). (P3-06 §7)"""
+        self._login("qa_nodept_leader")
+        response = self.client.get(reverse("checklist:today"))
+        self.assertNotContains(response, reverse("checklist:status"))
+
+    def test_inactive_dept_team_leader_today_has_no_status_link(self):
+        """비활성 부서 소속 팀장도 현황 링크가 없다. (P3-06 §7)"""
+        self._login("qa_inact_leader")
+        response = self.client.get(reverse("checklist:today"))
+        self.assertNotContains(response, reverse("checklist:status"))
+
+    def test_nodept_manager_today_has_status_link(self):
+        """무소속 MANAGER 는 소속과 무관하게 현황 링크가 있다. (P3-06 §7)"""
+        self._login("qa_nodept_mgr")
+        response = self.client.get(reverse("checklist:today"))
+        self.assertContains(response, reverse("checklist:status"))
+
+    def test_nodept_admin_today_has_status_link(self):
+        """무소속 ADMIN 도 현황 링크가 있다. (P3-06 §7)"""
+        self._login("qa_nodept_admin")
         response = self.client.get(reverse("checklist:today"))
         self.assertContains(response, reverse("checklist:status"))

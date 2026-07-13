@@ -132,32 +132,37 @@ class OSHomeViewTest(BaseFixtureTestCase):
 
         - notice:list 로 연결된다.
         - 실사용 설명 문구가 보인다.
-        - '준비 중' 뱃지(os-badge soon)는 남은 4개 모듈만 가진다(공지 제외).
+        - '준비 중' 뱃지(os-badge soon)는 남은 3개 모듈만 가진다(공지·체크리스트 제외).
         """
         self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
         response = self.client.get(reverse("home"))
         self.assertContains(response, reverse("notice:list"))
         self.assertContains(response, "직원이 확인해야 할 공지")
-        self.assertContains(response, "os-badge soon", count=4)
+        self.assertContains(response, "os-badge soon", count=3)
 
-    def test_home_keeps_other_modules_preparing(self):
-        """체크리스트/SOP/요청/근태 카드는 여전히 준비 중이다. (P2-06 / P3-01)
-
-        체크리스트는 P3-01 에서 checklist 앱으로 이관되었으나 카드는 여전히 준비 중(disabled) 상태다.
-        """
+    def test_home_checklist_card_is_active_module(self):
+        """체크리스트 카드는 실사용 모듈로 표시된다(준비 중 아님). (P3-06)"""
         self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
         response = self.client.get(reverse("home"))
-        # 체크리스트 카드는 checklist 앱으로 연결되지만 disabled(준비 중) 상태 유지
-        self.assertContains(response, 'disabled" href="%s"' % reverse("checklist:today"))
+        self.assertContains(response, reverse("checklist:today"))
+        self.assertContains(response, "부서별로 오늘 수행해야 할 정기업무")
+        self.assertNotContains(
+            response, 'disabled" href="%s"' % reverse("checklist:today")
+        )
+
+    def test_home_keeps_sop_request_schedule_preparing(self):
+        """SOP/요청/근태 카드는 여전히 준비 중 placeholder 로 연결된다. (P3-06)"""
+        self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
+        response = self.client.get(reverse("home"))
         for name in ("manual_placeholder", "request_placeholder", "schedule_placeholder"):
             self.assertContains(response, reverse(name))
 
-    def test_sidebar_has_notice_link(self):
-        """사이드바에 공지사항 링크가 노출된다. (P2-06)"""
+    def test_sidebar_has_notice_and_checklist_links(self):
+        """사이드바에 공지사항·체크리스트 링크가 노출된다. (P2-06 / P3-06)"""
         self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
         response = self.client.get(reverse("home"))
-        self.assertContains(response, "공지사항")
         self.assertContains(response, reverse("notice:list"))
+        self.assertContains(response, reverse("checklist:today"))
 
     def test_sidebar_notice_active_on_notice_page(self):
         """notice 화면에서 사이드바 공지사항 메뉴가 active 로 표시된다. (P2-06)"""
@@ -166,6 +171,16 @@ class OSHomeViewTest(BaseFixtureTestCase):
         self.assertContains(
             response, 'aria-current="page" href="%s"' % reverse("notice:list")
         )
+
+    def test_sidebar_checklist_active_on_today_and_status(self):
+        """checklist namespace(today/status) 에서 사이드바 체크리스트 메뉴가 active. (P3-06)"""
+        active_marker = 'aria-current="page" href="%s"' % reverse("checklist:today")
+        # today: 일반 직원
+        self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
+        self.assertContains(self.client.get(reverse("checklist:today")), active_marker)
+        # status: MANAGER(전체 활성 부서 조회 가능)
+        self.client.login(username="manager", password=DEFAULT_PASSWORD)
+        self.assertContains(self.client.get(reverse("checklist:status")), active_marker)
 
 
 class ModulePlaceholderViewTest(BaseFixtureTestCase):

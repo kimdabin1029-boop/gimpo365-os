@@ -8,7 +8,7 @@ from django.views.generic import TemplateView
 
 from accounts.mixins import TeamLeaderRequiredMixin
 from accounts.models import Role
-from accounts.permissions import has_role_at_least
+from accounts.permissions import has_role_at_least, is_manager_or_above
 from checklist.models import ChecklistItem, DepartmentChecklistItem
 from checklist.selectors import (
     get_checklist_status_for_user,
@@ -37,18 +37,26 @@ class TodayChecklistView(LoginRequiredMixin, TemplateView):
         # 기준 날짜는 요청당 한 번만 계산해 selector·context 에 동일하게 전달한다
         # (자정 경계에서 값이 어긋나지 않도록).
         target_date = timezone.localdate()
+        department = getattr(user, "department", None)
         entries = get_today_checklist_items(user, target_date=target_date)
         completed_count = sum(1 for entry in entries if entry.is_completed)
+        # 현황 링크 노출(편의). 실제 접근제어는 ChecklistStatusView/selector 가 강제한다.
+        # MANAGER 이상은 소속과 무관하게, TEAM_LEADER 는 활성 부서 소속일 때만 노출한다
+        # (무소속·비활성 부서 팀장은 클릭해도 403 이므로 링크를 감춘다. P3-06 §7).
+        can_view_status = is_manager_or_above(user) or (
+            has_role_at_least(user, Role.TEAM_LEADER)
+            and department is not None
+            and department.is_active
+        )
         context.update(
             {
                 "checklist_date": target_date,
-                "department": getattr(user, "department", None),
+                "department": department,
                 "entries": entries,
                 "total_count": len(entries),
                 "completed_count": completed_count,
                 "remaining_count": len(entries) - completed_count,
-                # 현황 링크 노출 여부(편의). 실제 접근제어는 ChecklistStatusView/selector 가 강제.
-                "can_view_checklist_status": has_role_at_least(user, Role.TEAM_LEADER),
+                "can_view_checklist_status": can_view_status,
             }
         )
         return context
