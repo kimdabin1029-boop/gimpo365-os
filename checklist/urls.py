@@ -1,17 +1,15 @@
-"""checklist URL. (P3-01)
+"""checklist URL. (P3-03)
 
-app_name = "checklist" namespace 로 /checklists/ 를 담당한다.
-현재는 준비 중 화면(name="today")만 연결하고, 완료/취소·누락 현황 URL 은
-모델·기능 단계(P3-03 이후)에서 추가한다. name="today" 는 최종 역할이
-로그인 사용자의 '오늘의 체크리스트' 화면이기 때문이다.
+app_name = "checklist" namespace 로 /checklists/ 오늘의 체크리스트를 담당한다.
+완료/취소(complete/cancel)·누락 현황(status) URL 은 P3-04 이후에 추가한다.
 """
 
 from django.urls import path
 
-from checklist.views import ChecklistPlaceholderView
+from checklist.views import TodayChecklistView
 
 app_name = "checklist"
 
 urlpatterns = [
-    path("", ChecklistPlaceholderView.as_view(), name="today"),
+    path("", TodayChecklistView.as_view(), name="today"),
 ]

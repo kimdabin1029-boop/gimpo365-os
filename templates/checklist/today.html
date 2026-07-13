@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}오늘의 체크리스트 · 김포365OS{% endblock %}
+{% block content %}
+<h1>오늘의 체크리스트</h1>
+
+{% if not department %}
+<div class="card">
+  <p>소속 부서가 설정되지 않아 체크리스트를 불러올 수 없습니다.</p>
+  <p>관리자에게 부서 설정을 요청해 주세요.</p>
+</div>
+{% else %}
+<p class="checklist-meta">
+  기준 날짜: {{ checklist_date|date:"Y-m-d" }} · 소속 부서: {{ department.name }}
+</p>
+
+{% if entries %}
+<p class="checklist-summary">
+  전체 {{ total_count }} · 완료 {{ completed_count }} · 미완료 {{ remaining_count }}
+</p>
+
+<ul class="checklist-today-list">
+  {% for entry in entries %}
+  <li class="checklist-today-item">
+    <span class="checklist-item-title">{{ entry.department_item.item.title }}</span>
+    {% if entry.is_completed %}
+      <span class="badge ok">완료</span>
+      <span class="checklist-completed-by">
+        {% if entry.record.completed_by %}{{ entry.record.completed_by.display_name }}{% else %}완료자 정보 없음{% endif %}
+        · {{ entry.record.completed_at|date:"H:i" }}
+      </span>
+    {% else %}
+      <span class="badge low">미완료</span>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="card">
+  <p>오늘 등록된 체크리스트가 없습니다.</p>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}
