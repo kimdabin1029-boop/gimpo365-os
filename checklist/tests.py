@@ -10,7 +10,10 @@ from django.utils import timezone
 from accounts.models import Role
 from checklist.admin import ChecklistRecordAdmin
 from checklist.models import ChecklistItem, ChecklistRecord, DepartmentChecklistItem
-from checklist.selectors import get_today_checklist_items
+from checklist.selectors import (
+    get_checklist_status_for_user,
+    get_today_checklist_items,
+)
 from checklist.services import (
     ChecklistActionNotAllowed,
     cancel_checklist_item,
@@ -22,7 +25,7 @@ from core.factories import (
     create_department,
     create_user,
 )
-from core.models import OperationalBaseModel
+from core.models import Department, OperationalBaseModel
 
 
 class ChecklistTodaySelectorTest(BaseFixtureTestCase):
@@ -746,3 +749,266 @@ class ChecklistCompletionViewTest(BaseFixtureTestCase):
         self._login("qa_v_skin_a")
         response = self.client.post(self._complete_url(self.inactive_item_assign))
         self.assertEqual(response.status_code, 404)
+
+
+class _StatusDataMixin:
+    """P3-05 현황 테스트 공통 데이터.
+
+    치료실: daily 2개(1 완료) + 제외 대상(비활성 항목/배정, weekly, monthly).
+    피부실: daily 1개(완료) → 모두 완료. 탕전실: daily 배정 0개 → 항목 없음.
+    비활성부서(폐과): daily 1개(관리자 현황에서 제외). 정렬부서: 미완료 3개.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.today = timezone.localdate()
+        cls.yesterday = cls.today - timedelta(days=1)
+        cls.inactive_dept = create_department("폐과", is_active=False)
+        cls.order_dept = create_department("정렬부서")
+
+        cls.treat_leader = create_user(
+            "qa_treat_leader", role=Role.TEAM_LEADER, department=cls.dept_treatment
+        )
+        cls.skin_leader = create_user(
+            "qa_skin_leader", role=Role.TEAM_LEADER, department=cls.dept_skin
+        )
+        cls.order_leader = create_user(
+            "qa_order_leader", role=Role.TEAM_LEADER, department=cls.order_dept
+        )
+        cls.nodept_leader = create_user(
+            "qa_nodept_leader", role=Role.TEAM_LEADER, department=None
+        )
+        cls.inactive_leader = create_user(
+            "qa_inact_leader", role=Role.TEAM_LEADER, department=cls.inactive_dept
+        )
+        cls.nodept_manager = create_user(
+            "qa_nodept_mgr", role=Role.MANAGER, department=None
+        )
+        cls.nodept_admin = create_user(
+            "qa_nodept_admin", role=Role.ADMIN, department=None
+        )
+
+        daily = ChecklistItem.Frequency.DAILY
+
+        def item(title, frequency=daily, is_active=True):
+            return ChecklistItem.objects.create(
+                title=title, frequency=frequency, is_active=is_active
+            )
+
+        def assign(the_item, dept, sort_order=0, is_active=True):
+            return DepartmentChecklistItem.objects.create(
+                item=the_item, department=dept, sort_order=sort_order, is_active=is_active
+            )
+
+        def record(dci, is_active=True, date=None):
+            return ChecklistRecord.objects.create(
+                department_item=dci,
+                date=date or cls.today,
+                is_active=is_active,
+                completed_at=timezone.now(),
+            )
+
+        # 치료실: t1 완료, t2 미완료 + 제외 대상들
+        cls.t1 = assign(item("치료실 항목1"), cls.dept_treatment, sort_order=0)
+        cls.t2 = assign(item("치료실 항목2"), cls.dept_treatment, sort_order=1)
+        record(cls.t1)  # 오늘 완료
+        record(cls.t2, date=cls.yesterday)  # 전날 기록 → 오늘 미완료
+        record(cls.t2, is_active=False)  # 오늘 취소 기록 → 미완료
+        assign(item("치료실 비활성항목", is_active=False), cls.dept_treatment)
+        assign(item("치료실 비활성배정"), cls.dept_treatment, is_active=False)
+        assign(
+            item("치료실 weekly", frequency=ChecklistItem.Frequency.WEEKLY),
+            cls.dept_treatment,
+        )
+        assign(
+            item("치료실 monthly", frequency=ChecklistItem.Frequency.MONTHLY),
+            cls.dept_treatment,
+        )
+
+        # 피부실: 1개 완료 → 모두 완료
+        cls.s1 = assign(item("피부실 항목1"), cls.dept_skin, sort_order=0)
+        record(cls.s1)
+
+        # 탕전실: 배정 0개 (fixture dept_decoction, active)
+
+        # 정렬부서: 미완료 3개(sort_order 2/0/1)
+        cls.od_c = assign(item("정렬 C"), cls.order_dept, sort_order=2)
+        cls.od_a = assign(item("정렬 A"), cls.order_dept, sort_order=0)
+        cls.od_b = assign(item("정렬 B"), cls.order_dept, sort_order=1)
+
+        # 비활성부서: daily 1개 (관리자 현황에서 제외되어야 함)
+        assign(item("폐과 항목"), cls.inactive_dept)
+
+
+class ChecklistStatusSelectorTest(_StatusDataMixin, BaseFixtureTestCase):
+    """get_checklist_status_for_user 확인. (P3-05 / CHECKLIST_TECH_SPEC §13)"""
+
+    def _by_dept(self, user):
+        return {
+            s.department.pk: s
+            for s in get_checklist_status_for_user(user)
+        }
+
+    def test_team_leader_sees_only_own_department(self):
+        statuses = get_checklist_status_for_user(self.treat_leader)
+        self.assertEqual(len(statuses), 1)
+        status = statuses[0]
+        self.assertEqual(status.department.pk, self.dept_treatment.id)
+        self.assertEqual(status.total_count, 2)
+        self.assertEqual(status.completed_count, 1)
+        self.assertEqual(status.remaining_count, 1)
+        self.assertEqual(
+            [a.item.title for a in status.missing_items], ["치료실 항목2"]
+        )
+
+    def test_manager_sees_all_active_departments_not_inactive(self):
+        by_dept = self._by_dept(self.manager)
+        self.assertIn(self.dept_treatment.id, by_dept)
+        self.assertIn(self.dept_skin.id, by_dept)
+        self.assertIn(self.dept_decoction.id, by_dept)
+        self.assertIn(self.order_dept.id, by_dept)
+        self.assertNotIn(self.inactive_dept.id, by_dept)
+
+    def test_admin_sees_all_active_departments(self):
+        by_dept = self._by_dept(self.admin)
+        self.assertIn(self.dept_treatment.id, by_dept)
+        self.assertNotIn(self.inactive_dept.id, by_dept)
+
+    def test_nodept_manager_sees_all_active(self):
+        by_dept = self._by_dept(self.nodept_manager)
+        self.assertIn(self.dept_treatment.id, by_dept)
+        self.assertIn(self.dept_skin.id, by_dept)
+
+    def test_empty_department_included_with_zero(self):
+        status = self._by_dept(self.manager)[self.dept_decoction.id]
+        self.assertEqual(status.total_count, 0)
+        self.assertEqual(status.remaining_count, 0)
+        self.assertEqual(status.missing_items, ())
+
+    def test_all_done_vs_empty_distinguished(self):
+        by_dept = self._by_dept(self.manager)
+        skin = by_dept[self.dept_skin.id]  # 모두 완료
+        decoction = by_dept[self.dept_decoction.id]  # 항목 없음
+        self.assertEqual(skin.total_count, 1)
+        self.assertEqual(skin.remaining_count, 0)
+        self.assertEqual(skin.missing_items, ())
+        self.assertEqual(decoction.total_count, 0)
+
+    def test_weekly_monthly_inactive_excluded_from_total(self):
+        status = self._by_dept(self.manager)[self.dept_treatment.id]
+        self.assertEqual(status.total_count, 2)  # daily 활성 2개만
+
+    def test_yesterday_and_inactive_record_not_completed(self):
+        status = self._by_dept(self.treat_leader)[self.dept_treatment.id]
+        missing_pks = {a.pk for a in status.missing_items}
+        self.assertIn(self.t2.pk, missing_pks)
+
+    def test_missing_items_ordered_by_sort_order(self):
+        status = get_checklist_status_for_user(self.order_leader)[0]
+        self.assertEqual(
+            [a.pk for a in status.missing_items],
+            [self.od_a.pk, self.od_b.pk, self.od_c.pk],
+        )
+
+    def test_departments_ordered_by_name_pk(self):
+        statuses = get_checklist_status_for_user(self.manager)
+        expected = list(
+            Department.objects.filter(is_active=True)
+            .order_by("name", "pk")
+            .values_list("pk", flat=True)
+        )
+        self.assertEqual([s.department.pk for s in statuses], expected)
+
+    def test_staff_permission_denied(self):
+        with self.assertRaises(PermissionDenied):
+            get_checklist_status_for_user(self.staff_skin)
+
+    def test_nodept_team_leader_permission_denied(self):
+        with self.assertRaises(PermissionDenied):
+            get_checklist_status_for_user(self.nodept_leader)
+
+    def test_inactive_dept_team_leader_permission_denied(self):
+        with self.assertRaises(PermissionDenied):
+            get_checklist_status_for_user(self.inactive_leader)
+
+    def test_selector_does_not_mutate_records(self):
+        before = ChecklistRecord.objects.count()
+        get_checklist_status_for_user(self.manager)
+        self.assertEqual(ChecklistRecord.objects.count(), before)
+
+    def test_query_count_at_most_three(self):
+        with self.assertNumQueries(3):
+            get_checklist_status_for_user(self.manager)
+
+
+class ChecklistStatusViewTest(_StatusDataMixin, BaseFixtureTestCase):
+    """/checklists/status/ 및 오늘 화면 현황 링크. (P3-05)"""
+
+    def _login(self, username):
+        self.client.login(username=username, password=DEFAULT_PASSWORD)
+
+    def test_anonymous_redirects_to_login(self):
+        response = self.client.get(reverse("checklist:status"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("accounts:login"), response.url)
+
+    def test_staff_is_403(self):
+        self._login("staff_skin")
+        self.assertEqual(self.client.get(reverse("checklist:status")).status_code, 403)
+
+    def test_team_leader_ok_uses_status_template(self):
+        self._login("qa_treat_leader")
+        response = self.client.get(reverse("checklist:status"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "checklist/status.html")
+
+    def test_manager_and_admin_ok(self):
+        for username in ("manager", "admin", "qa_nodept_mgr"):
+            self._login(username)
+            self.assertEqual(
+                self.client.get(reverse("checklist:status")).status_code, 200
+            )
+
+    def test_nodept_and_inactive_leader_403(self):
+        for username in ("qa_nodept_leader", "qa_inact_leader"):
+            self._login(username)
+            self.assertEqual(
+                self.client.get(reverse("checklist:status")).status_code, 403
+            )
+
+    def test_team_leader_sees_own_department_aggregation(self):
+        self._login("qa_treat_leader")
+        response = self.client.get(reverse("checklist:status"))
+        self.assertContains(response, "치료실")
+        self.assertContains(response, "미완료 항목")
+        self.assertContains(response, "치료실 항목2")  # 미완료 항목 제목
+        self.assertNotContains(response, "피부실 항목1")  # 다른 부서 미노출
+
+    def test_manager_shows_all_done_and_empty_states(self):
+        self._login("manager")
+        response = self.client.get(reverse("checklist:status"))
+        self.assertContains(response, "모든 체크리스트 항목을 완료했습니다.")
+        self.assertContains(response, "등록된 daily 체크리스트 항목이 없습니다.")
+
+    def test_status_page_has_no_action_form(self):
+        self._login("manager")
+        response = self.client.get(reverse("checklist:status"))
+        self.assertNotContains(response, 'action="/checklists/')
+        self.assertNotContains(response, 'type="checkbox"')
+
+    def test_status_view_does_not_change_records(self):
+        before = ChecklistRecord.objects.count()
+        self._login("manager")
+        self.client.get(reverse("checklist:status"))
+        self.assertEqual(ChecklistRecord.objects.count(), before)
+
+    def test_staff_today_has_no_status_link(self):
+        self._login("staff_skin")
+        response = self.client.get(reverse("checklist:today"))
+        self.assertNotContains(response, reverse("checklist:status"))
+
+    def test_team_leader_today_has_status_link(self):
+        self._login("qa_treat_leader")
+        response = self.client.get(reverse("checklist:today"))
+        self.assertContains(response, reverse("checklist:status"))

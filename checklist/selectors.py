@@ -3,12 +3,17 @@
 조회 전용. 레코드를 생성/수정하지 않는다. 완료/취소는 P3-04 service 가 담당한다.
 """
 
+from collections import defaultdict
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 
+from django.core.exceptions import PermissionDenied
 from django.utils import timezone
 
+from accounts.models import Role
+from accounts.permissions import has_role_at_least, is_manager_or_above
 from checklist.models import ChecklistItem, ChecklistRecord, DepartmentChecklistItem
+from core.models import Department
 
 
 @dataclass(frozen=True)
@@ -71,3 +76,95 @@ def get_today_checklist_items(user, target_date=None):
         TodayChecklistEntry(department_item=a, record=record_by_item.get(a.pk))
         for a in assignments
     ]
+
+
+@dataclass(frozen=True)
+class DepartmentChecklistStatus:
+    """한 부서의 오늘 daily 체크리스트 현황(누락 확인용)."""
+
+    department: Department
+    total_count: int
+    completed_count: int
+    remaining_count: int
+    missing_items: Tuple[DepartmentChecklistItem, ...]
+
+
+def get_checklist_status_for_user(user, target_date=None):
+    """user 역할에 따른 부서별 오늘 누락 현황을 계산한다. (P3-05 / CHECKLIST_TECH_SPEC §13)
+
+    - MANAGER / ADMIN: 전체 활성 부서(본인 소속 유무 무관).
+    - TEAM_LEADER: 본인 소속 활성 부서 1곳(무소속·비활성 부서면 PermissionDenied).
+    - STAFF / 비로그인: PermissionDenied.
+
+    view 의 mixin 과 별개로 selector 에서도 역할·범위를 강제한다(조회 전용, DB 변경 없음).
+    쿼리는 부서/항목 수와 무관하게 최대 3회(부서 1 + 배정 1 + 완료기록 1)다.
+    """
+    if target_date is None:
+        target_date = timezone.localdate()
+
+    if user is None or not getattr(user, "is_authenticated", False):
+        raise PermissionDenied("로그인이 필요합니다.")
+
+    if is_manager_or_above(user):
+        departments = list(
+            Department.objects.filter(is_active=True).order_by("name", "pk")
+        )
+    elif has_role_at_least(user, Role.TEAM_LEADER):
+        department = (
+            Department.objects.filter(pk=user.department_id, is_active=True).first()
+            if user.department_id
+            else None
+        )
+        if department is None:
+            raise PermissionDenied("활성 부서 소속 팀장만 조회할 수 있습니다.")
+        departments = [department]
+    else:
+        raise PermissionDenied("현황 조회 권한이 없습니다.")
+
+    if not departments:
+        return []
+
+    department_ids = [d.pk for d in departments]
+    assignments = list(
+        DepartmentChecklistItem.objects.filter(
+            is_active=True,
+            department_id__in=department_ids,
+            department__is_active=True,
+            item__is_active=True,
+            item__frequency=ChecklistItem.Frequency.DAILY,
+        )
+        .select_related("item", "department")
+        .order_by("department_id", "sort_order", "item__title", "pk")
+    )
+
+    if assignments:
+        completed_ids = set(
+            ChecklistRecord.objects.filter(
+                is_active=True,
+                date=target_date,
+                department_item_id__in=[a.pk for a in assignments],
+            ).values_list("department_item_id", flat=True)
+        )
+    else:
+        completed_ids = set()
+
+    assignments_by_department = defaultdict(list)
+    for assignment in assignments:
+        assignments_by_department[assignment.department_id].append(assignment)
+
+    statuses = []
+    for department in departments:
+        dept_assignments = assignments_by_department.get(department.pk, [])
+        missing = tuple(a for a in dept_assignments if a.pk not in completed_ids)
+        total = len(dept_assignments)
+        completed = total - len(missing)
+        statuses.append(
+            DepartmentChecklistStatus(
+                department=department,
+                total_count=total,
+                completed_count=completed,
+                remaining_count=len(missing),
+                missing_items=missing,
+            )
+        )
+    return statuses

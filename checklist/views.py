@@ -6,8 +6,14 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import TemplateView
 
+from accounts.mixins import TeamLeaderRequiredMixin
+from accounts.models import Role
+from accounts.permissions import has_role_at_least
 from checklist.models import ChecklistItem, DepartmentChecklistItem
-from checklist.selectors import get_today_checklist_items
+from checklist.selectors import (
+    get_checklist_status_for_user,
+    get_today_checklist_items,
+)
 from checklist.services import (
     ChecklistActionNotAllowed,
     cancel_checklist_item,
@@ -41,6 +47,8 @@ class TodayChecklistView(LoginRequiredMixin, TemplateView):
                 "total_count": len(entries),
                 "completed_count": completed_count,
                 "remaining_count": len(entries) - completed_count,
+                # 현황 링크 노출 여부(편의). 실제 접근제어는 ChecklistStatusView/selector 가 강제.
+                "can_view_checklist_status": has_role_at_least(user, Role.TEAM_LEADER),
             }
         )
         return context
@@ -96,3 +104,32 @@ class CancelChecklistItemView(LoginRequiredMixin, View):
         else:
             messages.info(request, "이미 미완료 상태입니다.")
         return redirect("checklist:today")
+
+
+class ChecklistStatusView(TeamLeaderRequiredMixin, TemplateView):
+    """오늘의 부서별 체크리스트 누락 현황(조회 전용). (P3-05 / CHECKLIST_TECH_SPEC §13)
+
+    TEAM_LEADER: 본인 부서 1곳. MANAGER/ADMIN: 전체 활성 부서. STAFF: 403(mixin).
+    부서 범위·무소속/비활성 부서 팀장 차단은 selector 가 PermissionDenied 로 강제한다.
+    완료/취소 기능은 없다(누락 확인만).
+    """
+
+    template_name = "checklist/status.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        target_date = timezone.localdate()
+        statuses = get_checklist_status_for_user(
+            self.request.user, target_date=target_date
+        )
+        context.update(
+            {
+                "checklist_date": target_date,
+                "department_statuses": statuses,
+                "department_count": len(statuses),
+                "total_count": sum(s.total_count for s in statuses),
+                "completed_count": sum(s.completed_count for s in statuses),
+                "remaining_count": sum(s.remaining_count for s in statuses),
+            }
+        )
+        return context
