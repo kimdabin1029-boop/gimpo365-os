@@ -1,27 +1,13 @@
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from accounts.mixins import ManagerRequiredMixin
 from accounts.permissions import is_manager_or_above
 from notice.forms import NoticeForm
 from notice.models import Notice
 from notice.selectors import get_accessible_notice_queryset
-
-
-class ManagerRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
-    """MANAGER 이상만 접근 허용. (P2-04)
-
-    - 비로그인 → 로그인 화면으로 redirect (LoginRequiredMixin).
-    - 로그인했지만 MANAGER 미만(STAFF/TEAM_LEADER) → 403 (UserPassesTestMixin).
-
-    권한 판단은 accounts.permissions.is_manager_or_above 를 사용한다.
-    (Django is_staff/is_superuser 가 아니라 OS role 기준이며, inventory helper 에 의존하지 않는다.)
-    P2-05 에서 공통 권한 mixin 으로 승격할지 검토한다.
-    """
-
-    def test_func(self):
-        return is_manager_or_above(self.request.user)
 
 
 def _ensure_published_at(notice):

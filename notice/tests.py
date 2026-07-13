@@ -1,13 +1,22 @@
 from datetime import timedelta
 
+from django import forms
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils import timezone
 
+from accounts.mixins import ManagerRequiredMixin
 from accounts.models import Role
-from core.factories import DEFAULT_PASSWORD, BaseFixtureTestCase, create_user
+from core.factories import (
+    DEFAULT_PASSWORD,
+    BaseFixtureTestCase,
+    create_department,
+    create_user,
+)
 from core.models import OperationalBaseModel
+from notice.forms import NoticeForm
 from notice.models import Notice
+from notice.views import NoticeCreateView, NoticeUpdateView
 
 
 class NoticeModelTest(BaseFixtureTestCase):
@@ -453,3 +462,56 @@ class NoticeWriteViewTest(BaseFixtureTestCase):
         self.assertNotContains(list_resp, reverse("notice:create"))
         detail_resp = self.client.get(reverse("notice:detail", args=[notice.pk]))
         self.assertNotContains(detail_resp, reverse("notice:update", args=[notice.pk]))
+
+
+class NoticeFormPolishTest(BaseFixtureTestCase):
+    """폼 한글 라벨·위젯·대상 부서 선택지 정리. (P2-05)"""
+
+    def test_labels_are_korean(self):
+        form = NoticeForm()
+        self.assertEqual(form.fields["title"].label, "제목")
+        self.assertEqual(form.fields["content"].label, "내용")
+        self.assertEqual(form.fields["target_type"].label, "대상")
+        self.assertEqual(form.fields["target_department"].label, "대상 부서")
+        self.assertEqual(form.fields["status"].label, "게시 상태")
+        self.assertEqual(form.fields["is_important"].label, "중요 표시")
+        self.assertEqual(form.fields["category"].label, "분류")
+        self.assertEqual(form.fields["reference_url"].label, "외부 링크")
+
+    def test_reference_url_has_help_and_placeholder(self):
+        form = NoticeForm()
+        self.assertTrue(form.fields["reference_url"].help_text)
+        self.assertEqual(
+            form.fields["reference_url"].widget.attrs.get("placeholder"), "https://..."
+        )
+
+    def test_content_widget_is_textarea(self):
+        form = NoticeForm()
+        self.assertIsInstance(form.fields["content"].widget, forms.Textarea)
+
+    def test_new_form_excludes_inactive_department(self):
+        inactive = create_department("폐과", is_active=False)
+        queryset = NoticeForm().fields["target_department"].queryset
+        self.assertIn(self.dept_skin, queryset)
+        self.assertNotIn(inactive, queryset)
+
+    def test_update_form_keeps_current_inactive_department(self):
+        inactive = create_department("폐과2", is_active=False)
+        notice = Notice.objects.create(
+            title="기존",
+            content="본문",
+            target_type=Notice.TargetType.DEPARTMENT,
+            target_department=inactive,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        queryset = NoticeForm(instance=notice).fields["target_department"].queryset
+        self.assertIn(inactive, queryset)
+
+
+class NoticeManagerMixinTest(BaseFixtureTestCase):
+    """등록/수정 view 가 공통 ManagerRequiredMixin(accounts.mixins)을 사용한다. (P2-05)"""
+
+    def test_write_views_use_shared_manager_mixin(self):
+        self.assertTrue(issubclass(NoticeCreateView, ManagerRequiredMixin))
+        self.assertTrue(issubclass(NoticeUpdateView, ManagerRequiredMixin))
