@@ -7,7 +7,7 @@
 ```text
 문서명: NOTICE_TASKS.md
 문서 범위: 김포365OS Module 2 — Notice 구현 작업 단위 분리
-문서 상태: P2-00 설계 초안
+문서 상태: Notice v1 구현 완료 (Phase 2 마감, P2-07)
 전제 문서: NOTICE_PRODUCT_SPEC.md, NOTICE_TECH_SPEC.md, OS_WORKING_RULES.md
 ```
 
@@ -15,7 +15,29 @@
 
 | 버전   | 수정일        | 변경 요약                                            |
 | ---- | ---------- | ------------------------------------------------ |
+| v0.2 | 2026-07-13 | Notice v1 구현 완료 반영(P2-01~P2-07 [x]). P2-09 Attachment Gate 보류 유지. 실제 실행 순서 매핑 주석 추가 |
 | v0.1 | 2026-07-11 | P2-00 Notice 구현 작업 단위 분리 (첨부 v1.1 게이트, OperationalBaseModel P2-01.5 분리) |
+
+---
+
+## 완료 상태 (P2-07 마감)
+
+```text
+[x] P2-00    Notice 문서 설계
+[x] P2-01    notice 앱 뼈대 + placeholder 전환
+[x] P2-01.5  OperationalBaseModel 신설 (abstract, migration 없음)
+[x] P2-01.6  OperationalBaseModel 문서 정합성 정리 (created_by/updated_by = SET_NULL)
+[x] P2-02    Notice 모델 + migration (리허설 DB 적용)
+[x] P2-03    목록/상세 조회 + selector 접근제어 (권한 없는 상세 404)
+[x] P2-04    등록/수정 + MANAGER 권한 + created_by/updated_by/published_at 서버측 처리
+[x] P2-05    폼 한글화·위젯·대상 부서(활성) 정리 + ManagerRequiredMixin → accounts.mixins
+[x] P2-06    OS 홈 카드 실사용 전환 + sidebar 공지사항 메뉴(active)
+[x] P2-07    Notice v1 QA + Phase 2 문서 마감
+[ ] P2-09    Notice v1.1 Attachment Gate — 보류(구현 아님). Checklist 정착 이후 또는 로드맵 가드 개정 후 검토.
+```
+
+실제 실행 매핑 주석: 아래 §1 개요의 P2-05/P2-06 항목은 지시서 재편성으로 P2-04(등록/수정+권한),
+P2-05(권한/폼/화면 정리), P2-06(실사용 진입)으로 실행되었다. 기능 범위는 동일하게 완료되었다.
 
 ---
 
@@ -53,7 +75,7 @@ git status / git status --ignored (민감파일 추적 여부)
 ## 1. 작업 단위 개요
 
 ```text
-P2-00    Notice 문서 설계                          [문서]   ← 현재 작업
+P2-00    Notice 문서 설계                          [문서]   (완료 — 상태는 위 "완료 상태" 참조)
 P2-01    notice 앱 뼈대 생성 및 placeholder 전환 준비   [코드]
 P2-01.5  OperationalBaseModel 신설                  [코드-only, migration 없음]
 P2-02    Notice 모델 설계 및 migration               [코드+migration/승인]

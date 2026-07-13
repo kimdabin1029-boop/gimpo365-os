@@ -6,8 +6,8 @@
 
 ```text
 문서명: NOTICE_TECH_SPEC.md
-문서 범위: 김포365OS Module 2 — Notice 기술 구현 기준 (설계)
-문서 상태: P2-00 설계 초안 (코드 미작성)
+문서 범위: 김포365OS Module 2 — Notice 기술 구현 기준
+문서 상태: Notice v1 구현 완료 (Phase 2 마감, P2-07). 본 문서의 설계는 실제 구현과 일치한다.
 전제 문서: OS_TECH_SPEC.md, OS_ARCHITECTURE.md, OS_WORKING_RULES.md, NOTICE_PRODUCT_SPEC.md
 ```
 
@@ -15,6 +15,7 @@
 
 | 버전   | 수정일        | 변경 요약                                      |
 | ---- | ---------- | ------------------------------------------ |
+| v0.2 | 2026-07-13 | Notice v1 구현 완료 반영. MANAGER Mixin 위치 확정(accounts.mixins), §17 확정 대상 해소, 본문 필드명 content 확정 |
 | v0.1 | 2026-07-11 | P2-00 Notice v1 기술 설계 초안 (첨부 v1 제외, OperationalBaseModel 상속 기준 반영) |
 
 ---
@@ -192,13 +193,16 @@ inventory/views.py
   판정은 is_manager_or_above() 를 쓰는 공통 Mixin 으로 처리(모듈별 중복 로직 금지).
 ```
 
-[결정 필요] MANAGER 권한 Mixin 위치:
+MANAGER 권한 Mixin 위치 (확정, P2-05):
 
 ```text
-옵션 A(권장): inventory 의 ManagerRequiredMixin 을 accounts 또는 core 공통 위치로 승격해
-             Notice·SOP·Request 가 공유. (Inventory 동작 회귀 확인 필요, 별도 작업 단위)
-옵션 B: Notice 에 동일 로직 Mixin 을 두되 is_manager_or_above() 를 재사용.
-→ OS_TECH_SPEC §14 "공통 권한 Mixin" 방향에 맞게 P2-05 에서 확정.
+accounts/mixins.py 에 ManagerRequiredMixin(LoginRequiredMixin, UserPassesTestMixin)을 신설했다.
+- test_func = is_manager_or_above (OS role 기준)
+- 비로그인 → 로그인 redirect / 로그인·MANAGER 미만 → 403
+- raise_exception 은 설정하지 않는다(설정 시 비로그인도 403 이 되어 redirect 규칙이 깨짐).
+Notice 의 NoticeCreateView / NoticeUpdateView 가 이를 import 해 사용한다.
+inventory 의 기존 ManagerRequiredMixin(로컬)은 그대로 두었다(회귀 방지, 건드리지 않음).
+향후 SOP/Request 도 accounts.mixins.ManagerRequiredMixin 을 재사용한다.
 ```
 
 ---
@@ -461,13 +465,15 @@ DeleteView (물리 삭제)
 
 ---
 
-## 17. 구현 단계 확정 대상 요약
+## 17. 구현 단계 확정 대상 요약 (P2-07 기준 — 모두 해소)
 
 ```text
-[확정필요] 본문 필드명 content vs body (OS_TECH_SPEC §24 정합)
-[확정필요] category choice 최종 이름 세트
-[확정필요] MANAGER Mixin 승격(옵션 A) vs Notice 로컬(옵션 B)
-[확정필요] 작성자 본인 draft 조회 허용 범위
-[선행작업] P2-01.5 OperationalBaseModel 신설(abstract, migration 없음)
-[승인게이트] P2-02 Notice 테이블 migration (리허설 한정, 별도 승인)
+[확정] 본문 필드명 = content (Notice.content)
+[확정] category choices = general / operation / education / admin (important 미포함)
+[확정] MANAGER Mixin = accounts.mixins.ManagerRequiredMixin (P2-05 승격)
+[확정] 작성자 본인 draft 조회 허용 = notice.selectors.get_accessible_notice_queryset 에 반영
+[완료] P2-01.5 OperationalBaseModel 신설(abstract, migration 없음)
+[완료] P2-02 Notice 테이블 migration (리허설 DB 적용)
+[구현] 조회 접근제어 = notice/selectors.py (목록/상세 공유), 권한 없는 상세 404
+[보류] 첨부파일 = Notice v1.1 Attachment Gate (§15), Checklist 정착 이후 검토
 ```

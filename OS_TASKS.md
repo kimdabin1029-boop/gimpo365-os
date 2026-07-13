@@ -6,8 +6,8 @@
 
 ```text
 문서명: OS_TASKS.md
-문서 버전: v0.5
-최종 수정일: 2026-07-09
+문서 버전: v0.6
+최종 수정일: 2026-07-13
 문서 범위: 김포365OS의 실제 작업 목록(살아있는 문서). 진행 상태를 추적한다.
 ```
 
@@ -15,6 +15,7 @@
 
 | 버전 | 수정일 | 변경 요약 |
 | --- | --- | --- |
+| v0.6 | 2026-07-13 | Phase 2 Notice v1 완료 반영(P2-00~P2-07). §2 스냅샷을 Phase 2 완료·다음 단계 Phase 3로 갱신, §3 notice 모듈 문서 [x], §7 Phase 2 [x]. 첨부파일은 v1 제외(v1.1 Attachment Gate, Checklist 정착 이후 검토) |
 | v0.5 | 2026-07-09 | Phase 1.5 종료 마감: §6 헤딩 (완료), P15-03/P15-04 [x] 전환(코드 변경 없이 충족), §2 스냅샷을 Phase 1.5 완료·다음 단계 Phase 2로 갱신 |
 | v0.4 | 2026-07-09 | Phase 1.5 조직 기준 문서화 반영: §2 스냅샷·§6 갱신(P15-01/02 완료, 결론 = Department + role 조합·Team 보류·활성 직원 department 지정 운영 원칙). OS_ARCHITECTURE §14 / OS_TECH_SPEC §16과 정합 |
 | v0.3 | 2026-07-09 | Phase 1(P1-00~P1-08) 완료 반영. §2 스냅샷·§5 Phase 1 목록을 실제 실행 순서로 갱신(P1-00 조사 추가, README를 P1-07로 이동), Phase 1 완료 요약·마감 후속 후보 추가, §6 Phase 1.5를 기존 Department 검증 성격(대기)으로 정리 |
@@ -45,13 +46,15 @@
 ## 2. 현재 상태 요약 (스냅샷)
 
 ```text
-갱신일: 2026-07-09
-단계: Phase 1 완료 · Phase 1.5 완료
-브랜치: main 기준 P1-01~P1-08 + title 접미사 정리 + Phase 1.5(P15-01~04) 반영 완료
-코드: OS 셸 구축 완료 — Inventory는 운영관리 > 재고관리 위치에서 사용 가능
-준비 중: 공지사항 / 오픈·마감 체크리스트 / SOP·업무 매뉴얼 / 내부 요청·결재 / 근태·근무표 (placeholder)
+갱신일: 2026-07-13
+단계: Phase 1 완료 · Phase 1.5 완료 · Phase 2 Notice v1 완료
+브랜치: main 기준 P1-01~P1-08 + Phase 1.5(P15-01~04) + Phase 2(P2-00~P2-07) 반영 완료
+코드: OS 셸 + Inventory(운영관리 > 재고관리) + Notice v1(공지사항) 사용 가능
+Notice v1: 목록/상세/등록/수정, MANAGER 이상 작성·수정, 전체/부서 대상 접근제어, draft/published,
+           is_important·category·reference_url, OS 홈·sidebar 실사용 진입. 첨부파일 미지원(v1 제외).
+준비 중: 오픈·마감 체크리스트 / SOP·업무 매뉴얼 / 내부 요청·결재 / 근태·근무표 (placeholder)
 조직 기준: Department + role 조합으로 확정, Team 모델 미도입 (P15-01~04)
-다음 단계: Phase 2 Notice 착수
+다음 단계: Phase 3 Checklist 착수 (OS MVP 컷라인의 마지막 핵심 모듈)
 ```
 
 ---
@@ -79,7 +82,7 @@
 
 ```text
 [x] docs/modules/inventory/INVENTORY_*.md (기존 보존)
-[ ] docs/modules/notice/                  (Phase 2에서 생성)
+[x] docs/modules/notice/NOTICE_*.md       (Phase 2 생성: PRODUCT_SPEC / TECH_SPEC / TASKS)
 [ ] docs/modules/checklist/               (Phase 3에서 생성)
 ```
 
@@ -208,13 +211,31 @@ Phase 1.5 결론(확정):
 각 모듈은 착수 시 `docs/modules/<name>/` 문서부터 생성하고, 정착 루프(운영 반영 → 안내 → 관찰 → 조정)까지 완료로 본다.
 
 ```text
-[ ] Phase 2  Notice v1        (문서형 CRUD 표준 패턴 확립 — CBV, 주석 학습용 첫 구현)
-[ ] Phase 3  Checklist v1     (일일 사용 핵심 모듈, Department/Team 기반)
+[x] Phase 2  Notice v1        (문서형 CRUD 표준 패턴 확립 완료 — P2-00~P2-07)
+[ ] Phase 3  Checklist v1     (일일 사용 핵심 모듈, Department/Team 기반) ← 다음
 --- 여기까지가 OS MVP 컷라인 ---
 [ ] Phase 4  SOP / Manual     (그릇만, 콘텐츠 저작은 별도 상시)
 [ ] Phase 5  Internal Request (상태값 3+1로 시작)
 [ ] Phase 6  Attendance       (근무표/휴가 확인 수준)
 [ ] Phase 7  운영 안정화·확장 검토
+```
+
+Phase 2 Notice v1 완료 요약 (P2-00~P2-07):
+
+```text
+[x] P2-00    Notice 문서 설계 (docs/modules/notice/ 3종)
+[x] P2-01    notice 앱 뼈대 + /notices/ placeholder → notice 앱 전환
+[x] P2-01.5  core.OperationalBaseModel 신설 (abstract, migration 없음)
+[x] P2-01.6  OperationalBaseModel 문서 정합성 정리 (created_by/updated_by = SET_NULL)
+[x] P2-02    Notice 모델 + notice.0001_initial (리허설 DB 적용)
+[x] P2-03    목록/상세 조회 + selector 기반 접근제어 (권한 없는 상세 404)
+[x] P2-04    등록/수정 + MANAGER 이상 권한 + created_by/updated_by/published_at 서버측 처리
+[x] P2-05    폼 한글화·위젯·대상 부서(활성) 정리 + ManagerRequiredMixin → accounts.mixins 승격
+[x] P2-06    OS 홈 카드 실사용 전환 + sidebar 공지사항 메뉴(active)
+[x] P2-07    Notice v1 QA + Phase 2 문서 마감 (이 커밋)
+[ ] P2-09    Notice v1.1 Attachment Gate — 보류(구현 아님). Checklist 정착 이후 또는 로드맵 가드 개정 후 검토.
+
+정착 루프(운영 반영 → 안내/교육 → 1~2주 관찰 → 조정)는 운영 반영 단계에서 별도 진행한다.
 ```
 
 ---
