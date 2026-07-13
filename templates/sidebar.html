@@ -4,7 +4,8 @@
 - Inventory 상세 퀵메뉴는 현재 화면이 inventory 앱일 때만(namespace=='inventory') 노출한다.
 - 권한 표시 플래그는 context_processor(nav_flags)에서 받는다. (권한 체계 미변경)
 - 현재 페이지는 aria-current="page" + active 클래스로 표시한다.
-- 미구현 모듈(공지/체크리스트 등)은 아직 넣지 않는다(P1-04/P1-05).
+- 공지사항은 실사용 모듈로 노출한다(P2-06, namespace=='notice'일 때 active).
+- 그 외 미구현 모듈(체크리스트/SOP/요청/근태)은 sidebar 에 넣지 않는다(OS 홈 카드에서 준비 중 표시).
 {% endcomment %}
 {% if user.is_authenticated %}
 {% with cur=request.resolver_match.url_name ns=request.resolver_match.namespace %}
@@ -17,6 +18,13 @@
           <a class="sidebar-link active" aria-current="page" href="{% url 'home' %}">OS 홈</a>
         {% else %}
           <a class="sidebar-link" href="{% url 'home' %}">OS 홈</a>
+        {% endif %}
+      </li>
+      <li>
+        {% if ns == 'notice' %}
+          <a class="sidebar-link active" aria-current="page" href="{% url 'notice:list' %}">공지사항</a>
+        {% else %}
+          <a class="sidebar-link" href="{% url 'notice:list' %}">공지사항</a>
         {% endif %}
       </li>
       <li class="sidebar-sep"><span>운영관리</span></li>

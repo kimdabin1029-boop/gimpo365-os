@@ -127,6 +127,46 @@ class OSHomeViewTest(BaseFixtureTestCase):
             self.assertContains(response, "운영관리")
             self.assertContains(response, reverse("inventory:dashboard"))
 
+    def test_home_notice_card_is_active_module(self):
+        """공지사항 카드는 실사용 모듈로 표시된다(준비 중 아님). (P2-06)
+
+        - notice:list 로 연결된다.
+        - 실사용 설명 문구가 보인다.
+        - '준비 중' 뱃지(os-badge soon)는 남은 4개 모듈만 가진다(공지 제외).
+        """
+        self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, reverse("notice:list"))
+        self.assertContains(response, "직원이 확인해야 할 공지")
+        self.assertContains(response, "os-badge soon", count=4)
+
+    def test_home_keeps_other_modules_preparing(self):
+        """체크리스트/SOP/요청/근태 카드는 여전히 준비 중 placeholder 로 연결된다. (P2-06)"""
+        self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
+        response = self.client.get(reverse("home"))
+        for name in (
+            "checklist_placeholder",
+            "manual_placeholder",
+            "request_placeholder",
+            "schedule_placeholder",
+        ):
+            self.assertContains(response, reverse(name))
+
+    def test_sidebar_has_notice_link(self):
+        """사이드바에 공지사항 링크가 노출된다. (P2-06)"""
+        self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, "공지사항")
+        self.assertContains(response, reverse("notice:list"))
+
+    def test_sidebar_notice_active_on_notice_page(self):
+        """notice 화면에서 사이드바 공지사항 메뉴가 active 로 표시된다. (P2-06)"""
+        self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
+        response = self.client.get(reverse("notice:list"))
+        self.assertContains(
+            response, 'aria-current="page" href="%s"' % reverse("notice:list")
+        )
+
 
 class ModulePlaceholderViewTest(BaseFixtureTestCase):
     """미구현 모듈 '준비 중' placeholder 화면 확인. (Phase 1 / P1-04)
