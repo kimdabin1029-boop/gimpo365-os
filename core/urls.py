@@ -10,14 +10,8 @@ from core.views import ModulePlaceholderView, OSHomeView
 
 urlpatterns = [
     path("", OSHomeView.as_view(), name="home"),
-    # /notices/ 는 P2-01 에서 notice 앱(notice.urls)으로 이관했다. core placeholder 아님.
-    path(
-        "checklists/",
-        ModulePlaceholderView.as_view(
-            extra_context={"module_name": "오픈/마감 체크리스트"}
-        ),
-        name="checklist_placeholder",
-    ),
+    # /notices/ 는 P2-01, /checklists/ 는 P3-01 에서 각 앱(notice.urls / checklist.urls)으로
+    # 이관했다. core placeholder 아님.
     path(
         "manuals/",
         ModulePlaceholderView.as_view(
