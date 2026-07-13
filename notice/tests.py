@@ -1,7 +1,8 @@
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
-from core.factories import DEFAULT_PASSWORD, BaseFixtureTestCase
+from accounts.models import Role
+from core.factories import DEFAULT_PASSWORD, BaseFixtureTestCase, create_user
 from core.models import OperationalBaseModel
 from notice.models import Notice
 
@@ -89,30 +90,152 @@ class NoticeModelTest(BaseFixtureTestCase):
         self.assertEqual(values, {"general", "operation", "education", "admin"})
 
 
-class NoticeListPlaceholderViewTest(BaseFixtureTestCase):
-    """/notices/ 가 notice 앱 준비 중 화면으로 연결되는지 확인. (P2-01)"""
+class NoticeReadViewTest(BaseFixtureTestCase):
+    """공지 목록/상세 조회 접근제어. (P2-03 / NOTICE_TECH_SPEC §8·§9)
 
-    def test_anonymous_redirects_to_login(self):
-        """비로그인 사용자는 로그인 화면으로 리다이렉트된다."""
+    등록/수정/form/첨부 테스트는 만들지 않는다. 조회·접근제어만 확인한다.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        # department 가 없는 일반 직원 (Phase 1.5: User.department nullable)
+        cls.staff_no_dept = create_user(
+            "staff_no_dept", role=Role.STAFF, department=None
+        )
+
+        cls.pub_all = Notice.objects.create(
+            title="전체 게시", content="본문",
+            status=Notice.Status.PUBLISHED, target_type=Notice.TargetType.ALL,
+        )
+        cls.pub_skin = Notice.objects.create(
+            title="피부실 게시", content="본문",
+            status=Notice.Status.PUBLISHED,
+            target_type=Notice.TargetType.DEPARTMENT, target_department=cls.dept_skin,
+        )
+        cls.pub_treatment = Notice.objects.create(
+            title="치료실 게시", content="본문",
+            status=Notice.Status.PUBLISHED,
+            target_type=Notice.TargetType.DEPARTMENT, target_department=cls.dept_treatment,
+        )
+        cls.manager_draft = Notice.objects.create(
+            title="운영진 초안", content="본문",
+            status=Notice.Status.DRAFT, target_type=Notice.TargetType.ALL,
+            created_by=cls.manager,
+        )
+        cls.inactive = Notice.objects.create(
+            title="비활성 게시", content="본문",
+            status=Notice.Status.PUBLISHED, target_type=Notice.TargetType.ALL,
+            is_active=False,
+        )
+        cls.important_ref = Notice.objects.create(
+            title="중요 게시", content="본문",
+            status=Notice.Status.PUBLISHED, target_type=Notice.TargetType.ALL,
+            is_important=True, reference_url="https://drive.example.com/doc",
+        )
+        cls.staff_skin_own_draft = Notice.objects.create(
+            title="본인 초안", content="본문",
+            status=Notice.Status.DRAFT, target_type=Notice.TargetType.ALL,
+            created_by=cls.staff_skin,
+        )
+
+    def _list_titles(self, username):
+        self.client.login(username=username, password=DEFAULT_PASSWORD)
+        response = self.client.get(reverse("notice:list"))
+        self.assertEqual(response.status_code, 200)
+        return {n.title for n in response.context["notices"]}
+
+    def _detail_status(self, username, notice):
+        self.client.login(username=username, password=DEFAULT_PASSWORD)
+        return self.client.get(reverse("notice:detail", args=[notice.pk])).status_code
+
+    # --- URL / auth ---
+    def test_list_anonymous_redirects_to_login(self):
         response = self.client.get(reverse("notice:list"))
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("accounts:login"), response.url)
 
-    def test_authenticated_shows_placeholder(self):
-        """로그인 사용자는 공지사항 준비 중 화면을 200 으로 받는다."""
+    def test_list_authenticated_ok(self):
         self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
         response = self.client.get(reverse("notice:list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "notice/notice_list_placeholder.html")
-        self.assertContains(response, "공지사항")
-        self.assertContains(response, "준비 중")
+        self.assertTemplateUsed(response, "notice/notice_list.html")
 
-    def test_notice_list_resolves_to_notices_url(self):
-        """reverse('notice:list') 가 /notices/ 로 resolve 된다."""
+    def test_list_url_resolves(self):
         self.assertEqual(reverse("notice:list"), "/notices/")
 
-    def test_home_notice_card_links_to_notice_list(self):
-        """OS 홈의 공지사항 카드가 notice:list 로 연결된다."""
+    def test_detail_url_resolves(self):
+        self.assertEqual(
+            reverse("notice:detail", args=[self.pub_all.pk]),
+            f"/notices/{self.pub_all.pk}/",
+        )
+
+    def test_home_card_links_to_list(self):
         self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
         response = self.client.get(reverse("home"))
         self.assertContains(response, reverse("notice:list"))
+
+    # --- 목록 접근제어 ---
+    def test_staff_sees_published_all(self):
+        self.assertIn("전체 게시", self._list_titles("staff_treatment"))
+
+    def test_staff_does_not_see_draft(self):
+        self.assertNotIn("운영진 초안", self._list_titles("staff_treatment"))
+
+    def test_staff_does_not_see_inactive(self):
+        self.assertNotIn("비활성 게시", self._list_titles("staff_treatment"))
+
+    def test_staff_sees_own_department_notice(self):
+        self.assertIn("피부실 게시", self._list_titles("staff_skin"))
+
+    def test_staff_does_not_see_other_department_notice(self):
+        self.assertNotIn("치료실 게시", self._list_titles("staff_skin"))
+
+    def test_no_department_staff_sees_only_all(self):
+        titles = self._list_titles("staff_no_dept")
+        self.assertIn("전체 게시", titles)
+        self.assertNotIn("피부실 게시", titles)
+        self.assertNotIn("치료실 게시", titles)
+
+    def test_manager_sees_draft_and_all_departments_but_not_inactive(self):
+        titles = self._list_titles("manager")
+        self.assertIn("운영진 초안", titles)
+        self.assertIn("피부실 게시", titles)
+        self.assertIn("치료실 게시", titles)
+        self.assertNotIn("비활성 게시", titles)
+
+    def test_admin_sees_draft(self):
+        self.assertIn("운영진 초안", self._list_titles("admin"))
+
+    def test_author_sees_own_draft(self):
+        self.assertIn("본인 초안", self._list_titles("staff_skin"))
+
+    def test_other_staff_does_not_see_someone_elses_draft(self):
+        self.assertNotIn("본인 초안", self._list_titles("staff_treatment"))
+
+    # --- 상세 접근제어 ---
+    def test_detail_accessible_is_200(self):
+        self.assertEqual(self._detail_status("staff_treatment", self.pub_all), 200)
+
+    def test_detail_other_department_is_404(self):
+        self.assertEqual(self._detail_status("staff_skin", self.pub_treatment), 404)
+
+    def test_detail_draft_is_404_for_staff(self):
+        self.assertEqual(self._detail_status("staff_treatment", self.manager_draft), 404)
+
+    def test_detail_inactive_is_404(self):
+        self.assertEqual(self._detail_status("staff_treatment", self.inactive), 404)
+
+    def test_detail_manager_can_open_draft(self):
+        self.assertEqual(self._detail_status("manager", self.manager_draft), 200)
+
+    # --- 렌더링 ---
+    def test_important_badge_shown_in_detail(self):
+        self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
+        response = self.client.get(reverse("notice:detail", args=[self.important_ref.pk]))
+        self.assertContains(response, "중요")
+
+    def test_reference_url_shown_in_detail(self):
+        self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
+        response = self.client.get(reverse("notice:detail", args=[self.important_ref.pk]))
+        self.assertContains(response, "https://drive.example.com/doc")

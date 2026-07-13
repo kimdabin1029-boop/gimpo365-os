@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}공지사항 · 김포365OS{% endblock %}
+{% block content %}
+<h1>공지사항</h1>
+
+{% if notices %}
+<ul class="notice-list">
+  {% for notice in notices %}
+  <li class="notice-list-item">
+    {% if notice.is_important %}<span class="badge low">중요</span>{% endif %}
+    <a href="{% url 'notice:detail' notice.pk %}">{{ notice.title }}</a>
+    <span class="notice-meta">
+      [{{ notice.get_category_display }}]
+      · {{ notice.get_status_display }}
+      · 대상: {% if notice.target_type == 'department' %}{{ notice.target_department }}{% else %}{{ notice.get_target_type_display }}{% endif %}
+      {% if notice.reference_url %}· 외부 링크{% endif %}
+      · {{ notice.created_at|date:"Y-m-d" }}
+    </span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="card">
+  <p>등록된 공지가 없습니다.</p>
+</div>
+{% endif %}
+{% endblock %}
