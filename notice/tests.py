@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from django.core.exceptions import ValidationError
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import Role
 from core.factories import DEFAULT_PASSWORD, BaseFixtureTestCase, create_user
@@ -239,3 +242,214 @@ class NoticeReadViewTest(BaseFixtureTestCase):
         self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
         response = self.client.get(reverse("notice:detail", args=[self.important_ref.pk]))
         self.assertContains(response, "https://drive.example.com/doc")
+
+
+class NoticeWriteViewTest(BaseFixtureTestCase):
+    """공지 등록/수정 권한·서버측 필드·published_at 처리. (P2-04)
+
+    삭제/첨부/읽음확인 테스트는 만들지 않는다.
+    """
+
+    def _login(self, username):
+        self.client.login(username=username, password=DEFAULT_PASSWORD)
+
+    def _form_data(self, **overrides):
+        data = {
+            "title": "새 공지",
+            "content": "본문",
+            "target_type": Notice.TargetType.ALL,
+            "target_department": "",
+            "status": Notice.Status.DRAFT,
+            "category": Notice.Category.GENERAL,
+            "reference_url": "",
+        }
+        data.update(overrides)
+        return data
+
+    def _make_notice(self, **kwargs):
+        defaults = {
+            "title": "기존 공지",
+            "content": "본문",
+            "created_by": self.admin,
+            "updated_by": self.admin,
+        }
+        defaults.update(kwargs)
+        return Notice.objects.create(**defaults)
+
+    # --- 등록 접근 권한 ---
+    def test_create_anonymous_redirects_to_login(self):
+        resp = self.client.get(reverse("notice:create"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(reverse("accounts:login"), resp.url)
+
+    def test_create_staff_forbidden(self):
+        self._login("staff_skin")
+        self.assertEqual(self.client.get(reverse("notice:create")).status_code, 403)
+
+    def test_create_team_leader_forbidden(self):
+        self._login("team_leader_skin")
+        self.assertEqual(self.client.get(reverse("notice:create")).status_code, 403)
+
+    def test_create_manager_ok(self):
+        self._login("manager")
+        self.assertEqual(self.client.get(reverse("notice:create")).status_code, 200)
+
+    # --- 등록 동작 ---
+    def test_manager_can_create_and_redirects_to_detail(self):
+        self._login("manager")
+        resp = self.client.post(reverse("notice:create"), self._form_data(title="등록됨"))
+        notice = Notice.objects.get(title="등록됨")
+        self.assertRedirects(resp, reverse("notice:detail", args=[notice.pk]))
+
+    def test_create_sets_created_and_updated_by(self):
+        self._login("manager")
+        self.client.post(reverse("notice:create"), self._form_data(title="작성자확인"))
+        notice = Notice.objects.get(title="작성자확인")
+        self.assertEqual(notice.created_by_id, self.manager.id)
+        self.assertEqual(notice.updated_by_id, self.manager.id)
+
+    def test_create_published_sets_published_at(self):
+        self._login("manager")
+        self.client.post(
+            reverse("notice:create"),
+            self._form_data(title="게시생성", status=Notice.Status.PUBLISHED),
+        )
+        notice = Notice.objects.get(title="게시생성")
+        self.assertIsNotNone(notice.published_at)
+
+    def test_create_draft_keeps_published_at_none(self):
+        self._login("manager")
+        self.client.post(
+            reverse("notice:create"),
+            self._form_data(title="초안생성", status=Notice.Status.DRAFT),
+        )
+        notice = Notice.objects.get(title="초안생성")
+        self.assertIsNone(notice.published_at)
+
+    # --- 수정 접근 권한 ---
+    def test_update_staff_forbidden(self):
+        notice = self._make_notice()
+        self._login("staff_skin")
+        self.assertEqual(
+            self.client.get(reverse("notice:update", args=[notice.pk])).status_code, 403
+        )
+
+    def test_update_manager_ok(self):
+        notice = self._make_notice()
+        self._login("manager")
+        self.assertEqual(
+            self.client.get(reverse("notice:update", args=[notice.pk])).status_code, 200
+        )
+
+    def test_update_inactive_is_404(self):
+        notice = self._make_notice(is_active=False)
+        self._login("manager")
+        self.assertEqual(
+            self.client.get(reverse("notice:update", args=[notice.pk])).status_code, 404
+        )
+
+    # --- 수정 동작 ---
+    def test_manager_can_update(self):
+        notice = self._make_notice(title="원제목")
+        self._login("manager")
+        resp = self.client.post(
+            reverse("notice:update", args=[notice.pk]),
+            self._form_data(title="바뀐제목"),
+        )
+        self.assertRedirects(resp, reverse("notice:detail", args=[notice.pk]))
+        notice.refresh_from_db()
+        self.assertEqual(notice.title, "바뀐제목")
+
+    def test_update_sets_updated_by_and_keeps_created_by(self):
+        notice = self._make_notice(created_by=self.admin, updated_by=self.admin)
+        self._login("manager")
+        self.client.post(
+            reverse("notice:update", args=[notice.pk]),
+            self._form_data(title="기존 공지", content="바뀐본문"),
+        )
+        notice.refresh_from_db()
+        self.assertEqual(notice.updated_by_id, self.manager.id)
+        self.assertEqual(notice.created_by_id, self.admin.id)
+
+    def test_update_draft_to_published_sets_published_at(self):
+        notice = self._make_notice(status=Notice.Status.DRAFT)
+        self.assertIsNone(notice.published_at)
+        self._login("manager")
+        self.client.post(
+            reverse("notice:update", args=[notice.pk]),
+            self._form_data(title="기존 공지", status=Notice.Status.PUBLISHED),
+        )
+        notice.refresh_from_db()
+        self.assertIsNotNone(notice.published_at)
+
+    def test_update_keeps_existing_published_at(self):
+        original = timezone.now() - timedelta(days=3)
+        notice = self._make_notice(status=Notice.Status.PUBLISHED, published_at=original)
+        self._login("manager")
+        self.client.post(
+            reverse("notice:update", args=[notice.pk]),
+            self._form_data(title="게시수정", status=Notice.Status.PUBLISHED),
+        )
+        notice.refresh_from_db()
+        self.assertEqual(notice.published_at, original)
+
+    def test_update_published_to_draft_keeps_published_at(self):
+        original = timezone.now() - timedelta(days=3)
+        notice = self._make_notice(status=Notice.Status.PUBLISHED, published_at=original)
+        self._login("manager")
+        self.client.post(
+            reverse("notice:update", args=[notice.pk]),
+            self._form_data(title="기존 공지", status=Notice.Status.DRAFT),
+        )
+        notice.refresh_from_db()
+        self.assertEqual(notice.published_at, original)
+
+    # --- form validation (target_type / target_department) ---
+    def test_create_all_with_department_is_invalid(self):
+        self._login("manager")
+        resp = self.client.post(
+            reverse("notice:create"),
+            self._form_data(
+                title="잘못1",
+                target_type=Notice.TargetType.ALL,
+                target_department=self.dept_skin.pk,
+            ),
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(Notice.objects.filter(title="잘못1").exists())
+        self.assertTrue(resp.context["form"].errors)
+
+    def test_create_department_without_target_is_invalid(self):
+        self._login("manager")
+        resp = self.client.post(
+            reverse("notice:create"),
+            self._form_data(
+                title="잘못2",
+                target_type=Notice.TargetType.DEPARTMENT,
+                target_department="",
+            ),
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(Notice.objects.filter(title="잘못2").exists())
+        self.assertTrue(resp.context["form"].errors)
+
+    # --- 관리 버튼 노출 ---
+    def test_manager_sees_manage_buttons(self):
+        notice = self._make_notice(
+            status=Notice.Status.PUBLISHED, target_type=Notice.TargetType.ALL
+        )
+        self._login("manager")
+        list_resp = self.client.get(reverse("notice:list"))
+        self.assertContains(list_resp, reverse("notice:create"))
+        detail_resp = self.client.get(reverse("notice:detail", args=[notice.pk]))
+        self.assertContains(detail_resp, reverse("notice:update", args=[notice.pk]))
+
+    def test_staff_does_not_see_manage_buttons(self):
+        notice = self._make_notice(
+            status=Notice.Status.PUBLISHED, target_type=Notice.TargetType.ALL
+        )
+        self._login("staff_skin")
+        list_resp = self.client.get(reverse("notice:list"))
+        self.assertNotContains(list_resp, reverse("notice:create"))
+        detail_resp = self.client.get(reverse("notice:detail", args=[notice.pk]))
+        self.assertNotContains(detail_resp, reverse("notice:update", args=[notice.pk]))

@@ -27,7 +27,10 @@
     · 수정일: {{ notice.updated_at|date:"Y-m-d H:i" }}
   </p>
 
-  <p style="margin-top:16px;">
+  <p style="margin-top:16px; display:flex; gap:12px; align-items:center;">
+    {% if can_manage_notice %}
+    <a class="btn-secondary" href="{% url 'notice:update' notice.pk %}">수정</a>
+    {% endif %}
     <a class="back-link" href="{% url 'notice:list' %}">← 공지사항 목록으로</a>
   </p>
 </div>

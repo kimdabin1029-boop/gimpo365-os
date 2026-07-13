@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ form_title }} · 김포365OS{% endblock %}
+{% block content %}
+<h1>{{ form_title }}</h1>
+
+<div class="card">
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div style="margin-top:16px; display:flex; gap:12px; align-items:center;">
+      <button type="submit">저장</button>
+      <a class="back-link" href="{% url 'notice:list' %}">← 공지사항 목록으로</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

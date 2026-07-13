@@ -3,6 +3,10 @@
 {% block content %}
 <h1>공지사항</h1>
 
+{% if can_manage_notice %}
+<p><a class="btn" href="{% url 'notice:create' %}">공지 등록</a></p>
+{% endif %}
+
 {% if notices %}
 <ul class="notice-list">
   {% for notice in notices %}
