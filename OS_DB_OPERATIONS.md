@@ -289,6 +289,55 @@ python manage.py test
 
 ---
 
+## 6A. 운영 후보 DB 전환과 알파 운영기록 초기화 (P3-08A)
+
+현재 배포 방향:
+
+```text
+- gimpo365os_prod : rehearsal 을 PostgreSQL TEMPLATE 방식으로 통째로 복제한 운영 후보 DB.
+- 포트 8001 에서 gimpo365os_prod 로 팀장 교육·알파테스트를 진행한다.
+- 별도의 데이터 마이그레이션은 하지 않는다.
+- 알파테스트에서 입력한 기준정보(계정/부서/거래처/품목/관리품목/체크리스트/공지)는 정식 운영에 그대로 쓴다.
+- 알파 운영기록(재고 거래·주문)만 초기화한 뒤, 실물 실사 → 최초재고 등록 → 같은 DB 를 8000 포트로 전환한다.
+```
+
+정식 운영 시작 직전, 기준정보는 보존하고 Inventory 운영기록만 비우는 전용 명령:
+
+```powershell
+# 1) 반드시 먼저 전체 백업 (backup_db.bat / §3)
+# 2) 삭제·보존 예상 건수 검토 (DB 변경 없음)
+python manage.py reset_alpha_transactions --dry-run
+
+# 3) 다빈 승인 후 실제 실행: --confirm-db 값이 현재 연결 DB명과 정확히 일치해야 한다
+python manage.py reset_alpha_transactions --yes --confirm-db gimpo365os_prod
+
+# (선택) 완료 기록·로그인 세션도 함께 초기화
+python manage.py reset_alpha_transactions --yes --confirm-db gimpo365os_prod --include-checklist-records --clear-sessions
+```
+
+```text
+보존: Department / User(role·부서) / Supplier / Item / ManagedItem / ChecklistItem /
+      DepartmentChecklistItem / Notice (+ migration/ContentType/Permission).
+삭제(기본): StockTransaction / CartItem / OrderItem / Order (자식→부모, transaction.atomic).
+현재고: 계산형(APPROVED quantity_delta 합계)이라 거래 삭제만으로 전 품목 0. 별도 초기화 불필요.
+안전장치: 기본 dry-run, 실제 삭제는 --yes + --confirm-db<연결 DB명 일치>. 불일치 시 무변경 거부.
+공지사항: 자동 삭제하지 않음(사람이 선별 삭제).
+상세: docs/modules/inventory/RESET_ALPHA_TRANSACTIONS_SPEC.md
+```
+
+`flush` 금지:
+
+```text
+정식 운영 전환 과정에서 python manage.py flush 를 사용하지 않는다.
+flush 는 사용자·부서·품목 등 기준정보까지 삭제하므로 이번 운영 절차와 맞지 않는다.
+```
+
+> 참고: 기존 `reset_operational_data`(DEBUG 가드 + --allow-production)도 같은 삭제 범위를 갖는다.
+> `reset_alpha_transactions` 는 운영 후보(DEBUG=False 가능) DB 를 위해 **--confirm-db 연결명 일치**를
+> 안전장치로 쓰고, --include-checklist-records / --clear-sessions / 현재고 0 자동 검증을 추가로 제공한다.
+
+---
+
 ## 7. 위험 명령 주의
 
 ```text
@@ -311,6 +360,7 @@ DB 비밀번호·pgpass 정보를 로그·커밋·출력에 남기지 않는다.
 [운영 복구]     (승인·중단 필수, -d 두 번 확인) pg_restore -d gimpo365_inventory ...
 [migration]    리허설: makemigrations --check --dry-run → migrate → check/test
               운영: 백업 → migrate --plan → migrate → check → smoke
+[알파리셋]      백업 → reset_alpha_transactions --dry-run → 승인 → --yes --confirm-db gimpo365os_prod (flush 금지)
 [항상]          작업 전 Select-String .env POSTGRES_DB 로 대상 DB 확인. --clean 쓸 땐 -d 값 두 번 확인.
 ```
 

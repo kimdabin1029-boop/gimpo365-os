@@ -1189,3 +1189,16 @@ StockTransaction Admin에서 add/delete를 허용하지 마라.
 - 점검항목 8종(기본공급업체/최소재고/보관위치/규격/비활성공급연결/비활성품목/활성품목無관리품목/최초재고). 최초재고 기준=승인 INITIAL_COUNT.
 - 읽기 전용(엑셀/화면). 현재고 저장필드 없음, 기존 입고/출고/주문/리포트/현재고 계산 원칙 불변. 모델/마이그레이션 변경 없음.
 - STAFF/TL 관리자 메뉴 미노출. 전체 테스트 통과.
+
+---
+
+## P3-08A-01 요약 (운영 후보 DB 알파 운영기록 리셋 명령)
+
+- reset_alpha_transactions command(터미널, 신규): 운영 후보 DB(gimpo365os_prod) 알파 종료 후 정식 운영 직전,
+  기준정보 보존 + Inventory 운영기록만 초기화. 기본 삭제 StockTransaction/CartItem/OrderItem/Order(자식→부모, atomic).
+- 안전장치: 기본 dry-run, 실제 삭제는 --yes + --confirm-db<연결 DB명 정확 일치>(불일치 시 무변경 거부). DEBUG 가드 없음
+  (운영 후보 DB 는 DEBUG=False 가능 → 연결 DB명 일치를 안전장치로 사용). 기존 reset_operational_data 는 보존·미수정.
+- 선택 옵션: --include-checklist-records(ChecklistRecord 삭제, 항목/배정 유지), --clear-sessions(세션 삭제, User 유지).
+- 현재고는 계산형(APPROVED quantity_delta 합계)이라 거래 삭제만으로 전 품목 0. COMPLETE 출력이 거래 0·현재고 0·기준정보 일치 자동 검증.
+- 공지사항 자동 삭제 안 함. 모델/마이그레이션 변경 없음. 신규 문서 RESET_ALPHA_TRANSACTIONS_SPEC.md. 전체 테스트 통과.
+- 실제 prod/rehearsal 초기화는 미실행(구현·문서화까지). 알파 종료 후 백업·승인하에 별도 실행.

@@ -56,8 +56,10 @@ Checklist v1: 부서 daily 정기업무 — 오늘 화면(내 부서), 수행자
               OS 홈·sidebar 실사용 진입. daily만 실행(weekly/monthly 후순위), 승인/개인담당/첨부 없음.
 준비 중: SOP·업무 매뉴얼 / 내부 요청·결재 / 근태·근무표 (placeholder)
 조직 기준: Department + role 조합으로 확정, Team 모델 미도입 (P15-01~04)
+배포 준비: 운영 후보 DB(gimpo365os_prod = rehearsal 복제본)를 8001에서 알파테스트 → 알파 운영기록만
+           reset_alpha_transactions로 초기화 → 실물 실사·최초재고 등록 → 동일 DB를 8000으로 정식 전환.
 다음 단계: P3-08 배포 후보 점검 (다빈 인수 테스트·피드백 이후). Phase 3 완료 = 기능 MVP 컷라인 도달이며
-           실제 운영 배포 가능 여부는 P3-08에서 검증.
+           실제 운영 배포 가능 여부는 P3-08에서 검증. (P3-08A-01: 알파 리셋 명령 reset_alpha_transactions 구현 완료)
 ```
 
 ---
@@ -236,6 +238,8 @@ Phase 3 Checklist v1 완료 요약 (P3-00~P3-07.5):
 [x] P3-07    Checklist v1 QA + Phase 3 문서 마감 — OS MVP 컷라인 도달
 [x] P3-07.5  사용자 인수 테스트 보완 (audit 필드 읽기 전용·자동 기록, ChecklistItemAdmin 배정 부서 표시,
              ChecklistItem.timing 필드 + checklist.0002, 오늘 화면 미완료 우선·timing 정렬·표시, 누락 현황 timing)
+[x] P3-08A-01 알파 운영기록 리셋 명령 (reset_alpha_transactions: 기준정보 보존 + Inventory 운영기록만 초기화,
+             --confirm-db 안전장치, --include-checklist-records/--clear-sessions, 현재고 0 자동 검증. 실제 초기화는 미실행)
 [ ] P3-08    배포 후보 점검 (구현 아님 — 내부망/계정·부서·권한/백업·복구/리허설→운영 반영 절차 점검)
 
 Checklist 후순위(미구현): weekly/monthly 실행 규칙, 알림/독촉, 기간 통계, 파일첨부, 별도 관리 UI.

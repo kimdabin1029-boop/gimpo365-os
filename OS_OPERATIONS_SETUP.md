@@ -214,6 +214,46 @@ python manage.py runserver 0.0.0.0:8000
 - 바인딩은 5.2의 `runserver 0.0.0.0:8000`으로 처리된다. 추가로 **서버 PC 방화벽이 해당 포트(8000)를 허용**해야 원내 다른 기기에서 접속된다(방화벽 허용은 배포 시 실측·확정 — 향후 보강).
 - 같은 서브넷 조건: 서버 PC와 동일 대역의 기기만 접속 가능. 게스트/분리 Wi-Fi에서는 안 될 수 있다.
 
+### 5.4 운영 후보 DB(`gimpo365os_prod`) 알파 → 정식 전환 (P3-08A)
+
+현재 배포 방향은 rehearsal 복제본(`gimpo365os_prod`)을 그대로 정식 운영으로 승격하는 것이다.
+별도의 데이터 마이그레이션은 하지 않는다.
+
+```text
+- gimpo365os_prod : rehearsal 을 PostgreSQL TEMPLATE 로 복제한 운영 후보 DB.
+- 8001 포트에서 gimpo365os_prod 로 팀장 알파테스트 → 기준정보·운영 설정 축적.
+- 알파 종료 후 알파 운영기록(재고 거래·주문)만 초기화 → 실물 실사 → 최초재고 등록.
+- 같은 DB 를 8000 포트로 구동하여 정식 운영 시작.
+- 알파에서 입력한 기준정보(계정/부서/거래처/품목/관리품목/공지/체크리스트)는 정식 운영에 그대로 사용.
+```
+
+전환 절차(요약. DB 상세는 OS_DB_OPERATIONS.md §6A):
+
+```text
+1. 8001 포트에서 팀장 알파테스트
+2. 실제 계정·부서·거래처·품목·관리품목 입력
+3. 실제 공지사항·체크리스트 항목 설정
+4. 알파테스트 종료 시각 공지 → 모든 입력 일시 중지
+5. gimpo365os_prod 전체 백업 (backup_db.bat)
+6. python manage.py reset_alpha_transactions --dry-run  → 삭제·보존 예상 건수 검토
+7. 다빈 승인 후 python manage.py reset_alpha_transactions --yes --confirm-db gimpo365os_prod
+8. 기준정보 건수 검증 + 관리품목 현재고 전부 0 확인
+9. 실물 재고 조사 → 최초재고(또는 실사조정)로 실제 수량 등록
+10. 테스트 공지·임시 계정 선별 정리, 로그인 세션 초기화(--clear-sessions)
+11. 최종 DB 백업
+12. 8001 서버 종료 → 동일 DB 를 8000 포트에서 실행
+13. 원내 PC 접속 확인 → 정식 운영 시작
+```
+
+```text
+⚠️ python manage.py flush 금지:
+flush 는 사용자·부서·품목 등 기준정보까지 삭제한다. 정식 운영 전환에는 reset_alpha_transactions 만 사용한다.
+```
+
+> `reset_alpha_transactions` 안전장치는 **--confirm-db(연결 DB명 정확 일치) + 전체 백업 + 다빈 승인**이다.
+> 실제 초기화는 이번 작업 범위가 아니라 알파테스트 종료 후 별도 승인·실행한다.
+> 상세: docs/modules/inventory/RESET_ALPHA_TRANSACTIONS_SPEC.md
+
 ---
 
 ## 6. PostgreSQL 직접 접근 (필요 시)

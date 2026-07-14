@@ -746,6 +746,28 @@ python manage.py reset_operational_data --yes --allow-production   # DEBUG=False
   초기화 후 각 관리품목별 최초재고 입력/승인을 다시 진행해야 한다.
 ```
 
+### 6I.1b reset_alpha_transactions (터미널 전용, P3-08A)
+운영 후보 DB(`gimpo365os_prod`) 알파테스트 종료 후, 정식 운영 시작 직전에 **기준정보는 보존하고
+알파 운영기록만** 초기화하는 전용 명령. `reset_operational_data` 와 삭제 범위는 같지만, 운영 후보
+(DEBUG=False 가능) DB 를 위해 **`--confirm-db`(연결 DB명 정확 일치)** 를 안전장치로 쓰고
+선택 옵션(완료 기록·세션)과 현재고 0 자동 검증을 추가로 제공한다.
+
+```text
+python manage.py reset_alpha_transactions --dry-run                              # 기본 dry-run(무변경)
+python manage.py reset_alpha_transactions --yes --confirm-db gimpo365os_prod     # 실제 삭제(연결 DB명 일치 필수)
+python manage.py reset_alpha_transactions --yes --confirm-db gimpo365os_prod --include-checklist-records --clear-sessions
+```
+```text
+- 삭제(기본): StockTransaction / CartItem / OrderItem / Order (자식→부모, transaction.atomic)
+- 선택: --include-checklist-records(ChecklistRecord), --clear-sessions(django_session)
+- 보존: Department / User / Supplier / Item / ManagedItem / ChecklistItem /
+  DepartmentChecklistItem / Notice (공지사항은 자동 삭제하지 않음 — 사람이 선별)
+- 안전장치: 기본 dry-run, 실제 삭제는 --yes + --confirm-db<연결 DB명 일치>. 불일치 시 무변경 거부.
+- 현재고: 계산형이라 거래 삭제만으로 전 품목 0. COMPLETE 출력이 거래 0·현재고 0·기준정보 일치를 자동 검증.
+- 실행 전 전체 백업 필수. 정식 운영 전환에는 python manage.py flush 를 쓰지 않는다.
+- 상세: docs/modules/inventory/RESET_ALPHA_TRANSACTIONS_SPEC.md
+```
+
 ### 6I.2 check_inventory_master_data (터미널 전용) / 관리자 > 기준정보 점검 화면
 정식 운영 전 기준정보 누락·오류를 점검한다. **command / 웹 화면 / 엑셀이 동일 기준**으로 결과를 낸다.
 
