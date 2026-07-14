@@ -215,7 +215,7 @@ Phase 1.5 결론(확정):
 
 ```text
 [x] Phase 2  Notice v1        (문서형 CRUD 표준 패턴 확립 완료 — P2-00~P2-07)
-[x] Phase 3  Checklist v1     (일일 사용 핵심 모듈 완료 — P3-00~P3-07; P3-08 배포 후보 점검만 남음)
+[x] Phase 3  Checklist v1     (일일 사용 핵심 모듈 완료 — P3-00~P3-07.5; P3-08 배포 후보 점검만 남음)
 --- 여기까지가 OS MVP 컷라인 (재고관리 + 공지사항 + 체크리스트) 도달 ---
 [ ] Phase 4  SOP / Manual     (그릇만, 콘텐츠 저작은 별도 상시)
 [ ] Phase 5  Internal Request (상태값 3+1로 시작)
@@ -223,7 +223,7 @@ Phase 1.5 결론(확정):
 [ ] Phase 7  운영 안정화·확장 검토
 ```
 
-Phase 3 Checklist v1 완료 요약 (P3-00~P3-07):
+Phase 3 Checklist v1 완료 요약 (P3-00~P3-07.5):
 
 ```text
 [x] P3-00    Checklist 문서 설계 (docs/modules/checklist/ 3종)
@@ -233,7 +233,9 @@ Phase 3 Checklist v1 완료 요약 (P3-00~P3-07):
 [x] P3-04    완료/취소 service (멱등·재활성, transaction+select_for_update, POST 전용, 타 부서 403)
 [x] P3-05    TEAM_LEADER 이상 누락 현황 (accounts.mixins.TeamLeaderRequiredMixin, 부서별 집계)
 [x] P3-06    OS 홈 카드 실사용 전환 + sidebar 체크리스트 메뉴(active)
-[x] P3-07    Checklist v1 QA + Phase 3 문서 마감 (이 커밋) — OS MVP 컷라인 도달
+[x] P3-07    Checklist v1 QA + Phase 3 문서 마감 — OS MVP 컷라인 도달
+[x] P3-07.5  사용자 인수 테스트 보완 (audit 필드 읽기 전용·자동 기록, ChecklistItemAdmin 배정 부서 표시,
+             ChecklistItem.timing 필드 + checklist.0002, 오늘 화면 미완료 우선·timing 정렬·표시, 누락 현황 timing)
 [ ] P3-08    배포 후보 점검 (구현 아님 — 내부망/계정·부서·권한/백업·복구/리허설→운영 반영 절차 점검)
 
 Checklist 후순위(미구현): weekly/monthly 실행 규칙, 알림/독촉, 기간 통계, 파일첨부, 별도 관리 UI.

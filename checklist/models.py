@@ -7,8 +7,12 @@ from core.models import Department, OperationalBaseModel
 class ChecklistItem(OperationalBaseModel):
     """체크리스트 업무 항목 정의. (P3-02 / CHECKLIST_TECH_SPEC §5)
 
-    업무 문구(title)와 반복 주기(frequency)만 정의한다. 부서 FK·개인 담당자 FK 는 없다.
+    업무 문구(title)·반복 주기(frequency)·시기(timing)를 정의한다. 부서 FK·개인 담당자 FK 는 없다.
     created_at/updated_at/created_by/updated_by/is_active 는 OperationalBaseModel 상속.
+
+    timing 은 항목 정의에 속한다. 같은 항목을 여러 부서에 배정하면 동일한 timing 을 쓰며,
+    부서별로 시기가 다르면 별도 ChecklistItem 으로 정의한다. 별도의 시각(시·분) 입력 필드는
+    두지 않고, 특정 시각·상황은 title 에 문구로 적는다(P3-07.5).
     """
 
     class Frequency(models.TextChoices):
@@ -16,11 +20,21 @@ class ChecklistItem(OperationalBaseModel):
         WEEKLY = "weekly", "매주"
         MONTHLY = "monthly", "매월"
 
+    class Timing(models.TextChoices):
+        OPENING = "opening", "오픈"
+        SPECIFIC = "specific", "특정 시점"
+        CLOSING = "closing", "마감"
+
     title = models.CharField(max_length=200)
     frequency = models.CharField(
         max_length=20,
         choices=Frequency.choices,
         default=Frequency.DAILY,
+    )
+    timing = models.CharField(
+        max_length=20,
+        choices=Timing.choices,
+        default=Timing.SPECIFIC,
     )
 
     class Meta:

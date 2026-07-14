@@ -25,6 +25,7 @@
 <ul class="checklist-today-list">
   {% for entry in entries %}
   <li class="checklist-today-item">
+    <span class="badge checklist-timing">{{ entry.department_item.item.get_timing_display }}</span>
     <span class="checklist-item-title">{{ entry.department_item.item.title }}</span>
     {% if entry.is_completed %}
       <span class="badge ok">완료</span>

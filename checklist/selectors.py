@@ -15,6 +15,18 @@ from accounts.permissions import has_role_at_least, is_manager_or_above
 from checklist.models import ChecklistItem, ChecklistRecord, DepartmentChecklistItem
 from core.models import Department
 
+# 시기 정렬 순서: 오픈 → 특정 시점 → 마감. (P3-07.5)
+# choices 에 없는 값은 맨 뒤로 밀어 안전하게 처리한다.
+TIMING_ORDER = {
+    ChecklistItem.Timing.OPENING: 0,
+    ChecklistItem.Timing.SPECIFIC: 1,
+    ChecklistItem.Timing.CLOSING: 2,
+}
+
+
+def _timing_rank(item):
+    return TIMING_ORDER.get(item.timing, len(TIMING_ORDER))
+
 
 @dataclass(frozen=True)
 class TodayChecklistEntry:
@@ -72,10 +84,22 @@ def get_today_checklist_items(user, target_date=None):
     ).select_related("completed_by")
     record_by_item = {r.department_item_id: r for r in records}
 
-    return [
+    entries = [
         TodayChecklistEntry(department_item=a, record=record_by_item.get(a.pk))
         for a in assignments
     ]
+    # 미완료 우선 → 시기 → sort_order → 제목 → pk 로 최종 정렬한다. (P3-07.5)
+    # 완료(True)가 미완료(False)보다 뒤로 가므로 완료 항목이 하단에 모인다.
+    entries.sort(
+        key=lambda e: (
+            e.is_completed,
+            _timing_rank(e.department_item.item),
+            e.department_item.sort_order,
+            e.department_item.item.title,
+            e.department_item.pk,
+        )
+    )
+    return entries
 
 
 @dataclass(frozen=True)
@@ -155,7 +179,18 @@ def get_checklist_status_for_user(user, target_date=None):
     statuses = []
     for department in departments:
         dept_assignments = assignments_by_department.get(department.pk, [])
-        missing = tuple(a for a in dept_assignments if a.pk not in completed_ids)
+        missing = tuple(
+            sorted(
+                (a for a in dept_assignments if a.pk not in completed_ids),
+                # 시기 → sort_order → 제목 → pk 로 정렬한다. (P3-07.5)
+                key=lambda a: (
+                    _timing_rank(a.item),
+                    a.sort_order,
+                    a.item.title,
+                    a.pk,
+                ),
+            )
+        )
         total = len(dept_assignments)
         completed = total - len(missing)
         statuses.append(

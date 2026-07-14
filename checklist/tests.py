@@ -4,11 +4,16 @@ from django.contrib import admin as django_admin
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, models, transaction
 from django.db.models import ProtectedError
+from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import Role
-from checklist.admin import ChecklistRecordAdmin
+from checklist.admin import (
+    ChecklistItemAdmin,
+    ChecklistRecordAdmin,
+    DepartmentChecklistItemAdmin,
+)
 from checklist.models import ChecklistItem, ChecklistRecord, DepartmentChecklistItem
 from checklist.selectors import (
     get_checklist_status_for_user,
@@ -115,9 +120,12 @@ class ChecklistTodaySelectorTest(BaseFixtureTestCase):
         for excluded in ("마 항목", "바 항목", "사 항목", "아 항목"):
             self.assertNotIn(excluded, titles)
 
-    def test_ordering_by_sort_order_then_title(self):
+    def test_ordering_incomplete_first_then_sort_order(self):
+        # 미완료 우선(P3-07.5) → 같은 상태 안에서 sort_order 순.
+        # 이 fixture 는 모두 timing=specific(기본값)이라 timing rank 는 동률이다.
+        # a1(so1)·a4(so3) 완료, a2(so0)·a3(so2) 미완료 → [a2, a3, a1, a4].
         pks = [e.department_item.pk for e in self._entries(self.staff_skin)]
-        self.assertEqual(pks, [self.a2.pk, self.a1.pk, self.a3.pk, self.a4.pk])
+        self.assertEqual(pks, [self.a2.pk, self.a3.pk, self.a1.pk, self.a4.pk])
 
     def test_completed_when_today_active_record(self):
         self.assertTrue(self._entry_map(self.staff_skin)[self.a1.pk].is_completed)
@@ -315,6 +323,30 @@ class ChecklistItemModelTest(BaseFixtureTestCase):
     def test_is_active_default_true(self):
         item = ChecklistItem.objects.create(title="온장고 전원을 끈다")
         self.assertTrue(item.is_active)
+
+    # --- timing (P3-07.5) ---
+    def test_timing_default_specific(self):
+        item = ChecklistItem.objects.create(title="소모품 부족 여부를 확인한다")
+        self.assertEqual(item.timing, ChecklistItem.Timing.SPECIFIC)
+
+    def test_timing_choices(self):
+        values = {c[0] for c in ChecklistItem.Timing.choices}
+        self.assertEqual(values, {"opening", "specific", "closing"})
+
+    def test_existing_core_fields_preserved(self):
+        field_names = {f.name for f in ChecklistItem._meta.get_fields()}
+        for name in ("title", "frequency", "timing"):
+            self.assertIn(name, field_names)
+
+    def test_no_time_input_field(self):
+        # 시각(시·분) 입력 필드를 추가하지 않는다. timing 은 CharField(choices)뿐이다.
+        field_types = {
+            type(f).__name__ for f in ChecklistItem._meta.get_fields()
+        }
+        self.assertNotIn("TimeField", field_types)
+        self.assertNotIn("DurationField", field_types)
+        timing_field = ChecklistItem._meta.get_field("timing")
+        self.assertIsInstance(timing_field, models.CharField)
 
 
 class DepartmentChecklistItemModelTest(BaseFixtureTestCase):
@@ -1042,3 +1074,316 @@ class ChecklistStatusViewTest(_StatusDataMixin, BaseFixtureTestCase):
         self._login("qa_nodept_admin")
         response = self.client.get(reverse("checklist:today"))
         self.assertContains(response, reverse("checklist:status"))
+
+
+# ---------------------------------------------------------------------------
+# P3-07.5 사용자 인수 테스트 보완
+# ---------------------------------------------------------------------------
+class ChecklistAdminAuditFieldTest(BaseFixtureTestCase):
+    """감사 필드 읽기 전용화·자동 기록. (P3-07.5 §6, 13.2)"""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.item_admin = ChecklistItemAdmin(ChecklistItem, django_admin.site)
+        self.dci_admin = DepartmentChecklistItemAdmin(
+            DepartmentChecklistItem, django_admin.site
+        )
+
+    def _request(self, user, method="post"):
+        request = getattr(self.factory, method)("/admin/")
+        request.user = user
+        return request
+
+    def test_item_admin_audit_fields_readonly(self):
+        ro = self.item_admin.get_readonly_fields(self._request(self.admin))
+        for name in ("created_by", "updated_by", "created_at", "updated_at"):
+            self.assertIn(name, ro)
+
+    def test_dci_admin_audit_fields_readonly(self):
+        ro = self.dci_admin.get_readonly_fields(self._request(self.admin))
+        for name in ("created_by", "updated_by", "created_at", "updated_at"):
+            self.assertIn(name, ro)
+
+    def test_audit_fields_not_rendered_as_editable_dropdown(self):
+        # readonly 이므로 admin form 의 편집 필드(base_fields)에 없다 → 사용자 선택 dropdown 없음.
+        for model_admin in (self.item_admin, self.dci_admin):
+            form_class = model_admin.get_form(self._request(self.admin, method="get"))
+            self.assertNotIn("created_by", form_class.base_fields)
+            self.assertNotIn("updated_by", form_class.base_fields)
+
+    def test_new_item_save_records_current_user(self):
+        request = self._request(self.staff_skin)
+        item = ChecklistItem(title="신규 등록 항목")
+        self.item_admin.save_model(request, item, form=None, change=False)
+        item.refresh_from_db()
+        self.assertEqual(item.created_by_id, self.staff_skin.id)
+        self.assertEqual(item.updated_by_id, self.staff_skin.id)
+
+    def test_edit_item_preserves_created_by_updates_updated_by(self):
+        item = ChecklistItem.objects.create(
+            title="수정될 항목", created_by=self.staff_skin, updated_by=self.staff_skin
+        )
+        request = self._request(self.manager)
+        self.item_admin.save_model(request, item, form=None, change=True)
+        item.refresh_from_db()
+        self.assertEqual(item.created_by_id, self.staff_skin.id)  # 최초 생성자 유지
+        self.assertEqual(item.updated_by_id, self.manager.id)  # 수정자 갱신
+
+    def test_new_assignment_save_records_current_user(self):
+        item = ChecklistItem.objects.create(title="배정용 항목")
+        request = self._request(self.staff_skin)
+        dci = DepartmentChecklistItem(item=item, department=self.dept_skin)
+        self.dci_admin.save_model(request, dci, form=None, change=False)
+        dci.refresh_from_db()
+        self.assertEqual(dci.created_by_id, self.staff_skin.id)
+        self.assertEqual(dci.updated_by_id, self.staff_skin.id)
+
+    def test_record_admin_audit_fields_still_readonly(self):
+        record_admin = ChecklistRecordAdmin(ChecklistRecord, django_admin.site)
+        for name in ("created_by", "updated_by", "created_at", "updated_at"):
+            self.assertIn(name, record_admin.readonly_fields)
+
+
+class ChecklistItemAdminAssignedDepartmentsTest(BaseFixtureTestCase):
+    """ChecklistItemAdmin 배정 부서 표시·N+1 방지. (P3-07.5 §7, 13.3)"""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.model_admin = ChecklistItemAdmin(ChecklistItem, django_admin.site)
+        self.inactive_dept = create_department("폐과부서", is_active=False)
+
+    def _request(self):
+        request = self.factory.get("/admin/")
+        request.user = self.admin
+        return request
+
+    def _display_for(self, item):
+        qs = self.model_admin.get_queryset(self._request())
+        return self.model_admin.assigned_departments(qs.get(pk=item.pk))
+
+    def test_shows_active_departments_by_name(self):
+        item = ChecklistItem.objects.create(title="냉난방 전원을 끈다")
+        DepartmentChecklistItem.objects.create(item=item, department=self.dept_treatment)
+        DepartmentChecklistItem.objects.create(item=item, department=self.dept_skin)
+        # 부서명 순: 치료실, 피부실
+        self.assertEqual(self._display_for(item), "치료실, 피부실")
+
+    def test_no_active_assignment_shows_unassigned(self):
+        item = ChecklistItem.objects.create(title="미배정 항목")
+        self.assertEqual(self._display_for(item), "미배정")
+
+    def test_inactive_assignment_excluded(self):
+        item = ChecklistItem.objects.create(title="비활성 배정 항목")
+        DepartmentChecklistItem.objects.create(
+            item=item, department=self.dept_skin, is_active=False
+        )
+        self.assertEqual(self._display_for(item), "미배정")
+
+    def test_inactive_department_excluded(self):
+        item = ChecklistItem.objects.create(title="비활성 부서 항목")
+        DepartmentChecklistItem.objects.create(item=item, department=self.inactive_dept)
+        self.assertEqual(self._display_for(item), "미배정")
+
+    def test_mixed_active_inactive_shows_only_active(self):
+        item = ChecklistItem.objects.create(title="혼합 배정 항목")
+        DepartmentChecklistItem.objects.create(item=item, department=self.dept_skin)
+        DepartmentChecklistItem.objects.create(
+            item=item, department=self.dept_treatment, is_active=False
+        )
+        DepartmentChecklistItem.objects.create(item=item, department=self.inactive_dept)
+        self.assertEqual(self._display_for(item), "피부실")
+
+    def test_no_n_plus_1_across_items(self):
+        for i in range(5):
+            it = ChecklistItem.objects.create(title=f"N+1 확인 항목 {i}")
+            DepartmentChecklistItem.objects.create(item=it, department=self.dept_skin)
+        items = list(self.model_admin.get_queryset(self._request()))
+        # prefetch 로 캐싱된 배정만 사용 → 항목 수와 무관하게 추가 query 없음.
+        with self.assertNumQueries(0):
+            for obj in items:
+                self.model_admin.assigned_departments(obj)
+
+
+class ChecklistTodayTimingSortTest(BaseFixtureTestCase):
+    """오늘 화면: 미완료 우선 + timing 정렬. (P3-07.5 §9, 13.4)"""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.today = timezone.localdate()
+        T = ChecklistItem.Timing
+
+        def assign(title, timing, sort_order=0):
+            return DepartmentChecklistItem.objects.create(
+                item=ChecklistItem.objects.create(title=title, timing=timing),
+                department=cls.dept_skin,
+                sort_order=sort_order,
+            )
+
+        cls.todo_open = assign("미완료 오픈", T.OPENING)
+        cls.todo_spec = assign("미완료 특정", T.SPECIFIC)
+        cls.todo_close = assign("미완료 마감", T.CLOSING)
+        cls.done_open = assign("완료 오픈", T.OPENING)
+        cls.done_spec = assign("완료 특정", T.SPECIFIC)
+        cls.done_close = assign("완료 마감", T.CLOSING)
+        for a in (cls.done_open, cls.done_spec, cls.done_close):
+            ChecklistRecord.objects.create(
+                department_item=a,
+                date=cls.today,
+                completed_at=timezone.now(),
+                completed_by=cls.staff_skin,
+            )
+
+    def _pks(self):
+        return [
+            e.department_item.pk
+            for e in get_today_checklist_items(self.staff_skin, target_date=self.today)
+        ]
+
+    def test_incomplete_first_then_completed_each_by_timing(self):
+        self.assertEqual(
+            self._pks(),
+            [
+                self.todo_open.pk,
+                self.todo_spec.pk,
+                self.todo_close.pk,
+                self.done_open.pk,
+                self.done_spec.pk,
+                self.done_close.pk,
+            ],
+        )
+
+    def test_selector_still_two_queries(self):
+        with self.assertNumQueries(2):
+            get_today_checklist_items(self.staff_skin, target_date=self.today)
+
+
+class ChecklistTodayTieBreakTest(BaseFixtureTestCase):
+    """오늘 화면 정렬 tie-break: timing 동률 → sort_order → 제목. (P3-07.5 13.4)"""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.today = timezone.localdate()
+        cls.dept = create_department("정렬확인부서")
+        cls.user = create_user("qa_sortcheck", role=Role.STAFF, department=cls.dept)
+        T = ChecklistItem.Timing
+
+        def assign(title, timing, sort_order):
+            return DepartmentChecklistItem.objects.create(
+                item=ChecklistItem.objects.create(title=title, timing=timing),
+                department=cls.dept,
+                sort_order=sort_order,
+            )
+
+        # 같은 timing(specific), 다른 sort_order (0 먼저)
+        cls.so0 = assign("정렬용 나", T.SPECIFIC, 0)
+        cls.so1 = assign("정렬용 가", T.SPECIFIC, 1)
+        # 같은 timing(opening), 같은 sort_order → 제목 순 (제목A 먼저)
+        cls.title_b = assign("제목B", T.OPENING, 5)
+        cls.title_a = assign("제목A", T.OPENING, 5)
+
+    def _pks(self):
+        return [
+            e.department_item.pk
+            for e in get_today_checklist_items(self.user, target_date=self.today)
+        ]
+
+    def test_same_timing_sorted_by_sort_order(self):
+        pks = self._pks()
+        self.assertLess(pks.index(self.so0.pk), pks.index(self.so1.pk))
+
+    def test_same_sort_order_sorted_by_title(self):
+        pks = self._pks()
+        self.assertLess(pks.index(self.title_a.pk), pks.index(self.title_b.pk))
+
+
+class ChecklistTodayReorderAfterActionTest(BaseFixtureTestCase):
+    """완료/취소 redirect 후 위치 변경. (P3-07.5 §9, 13.4)"""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        T = ChecklistItem.Timing
+        cls.a_open = DepartmentChecklistItem.objects.create(
+            item=ChecklistItem.objects.create(title="오픈 항목", timing=T.OPENING),
+            department=cls.dept_skin,
+            sort_order=0,
+        )
+        cls.a_close = DepartmentChecklistItem.objects.create(
+            item=ChecklistItem.objects.create(title="마감 항목", timing=T.CLOSING),
+            department=cls.dept_skin,
+            sort_order=1,
+        )
+
+    def _login(self):
+        self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
+
+    def _entry_pks(self, response):
+        return [e.department_item.pk for e in response.context["entries"]]
+
+    def test_complete_moves_item_to_bottom(self):
+        self._login()
+        response = self.client.get(reverse("checklist:today"))
+        self.assertEqual(self._entry_pks(response), [self.a_open.pk, self.a_close.pk])
+        self.client.post(reverse("checklist:complete", args=[self.a_open.pk]))
+        response = self.client.get(reverse("checklist:today"))
+        # 오픈 완료 → 하단 이동
+        self.assertEqual(self._entry_pks(response), [self.a_close.pk, self.a_open.pk])
+
+    def test_cancel_moves_item_back_to_incomplete(self):
+        self._login()
+        self.client.post(reverse("checklist:complete", args=[self.a_open.pk]))
+        self.client.post(reverse("checklist:cancel", args=[self.a_open.pk]))
+        response = self.client.get(reverse("checklist:today"))
+        self.assertEqual(self._entry_pks(response), [self.a_open.pk, self.a_close.pk])
+
+
+class ChecklistTimingDisplayTest(BaseFixtureTestCase):
+    """오늘 화면·누락 현황 timing 표시 및 현황 정렬. (P3-07.5 §11, 13.5)"""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        T = ChecklistItem.Timing
+        # sort_order 는 timing 과 역순으로 두어 timing rank 우선을 검증한다.
+        cls.open_a = DepartmentChecklistItem.objects.create(
+            item=ChecklistItem.objects.create(title="오픈 항목", timing=T.OPENING),
+            department=cls.dept_skin,
+            sort_order=2,
+        )
+        cls.spec_a = DepartmentChecklistItem.objects.create(
+            item=ChecklistItem.objects.create(title="특정 항목", timing=T.SPECIFIC),
+            department=cls.dept_skin,
+            sort_order=1,
+        )
+        cls.close_a = DepartmentChecklistItem.objects.create(
+            item=ChecklistItem.objects.create(title="마감 항목", timing=T.CLOSING),
+            department=cls.dept_skin,
+            sort_order=0,
+        )
+
+    def test_today_shows_timing_labels(self):
+        self.client.login(username="staff_skin", password=DEFAULT_PASSWORD)
+        response = self.client.get(reverse("checklist:today"))
+        self.assertContains(response, "오픈")
+        self.assertContains(response, "특정 시점")
+        self.assertContains(response, "마감")
+
+    def test_status_shows_timing_labels(self):
+        self.client.login(username="team_leader_skin", password=DEFAULT_PASSWORD)
+        response = self.client.get(reverse("checklist:status"))
+        self.assertContains(response, "특정 시점")
+
+    def test_status_missing_items_sorted_by_timing(self):
+        statuses = get_checklist_status_for_user(self.team_leader_skin)
+        skin = next(s for s in statuses if s.department.pk == self.dept_skin.id)
+        # timing rank 우선(오픈→특정→마감), sort_order 는 역순이지만 무시된다.
+        self.assertEqual(
+            [a.pk for a in skin.missing_items],
+            [self.open_a.pk, self.spec_a.pk, self.close_a.pk],
+        )
+
+    def test_status_selector_still_at_most_three_queries(self):
+        with self.assertNumQueries(3):
+            get_checklist_status_for_user(self.manager)

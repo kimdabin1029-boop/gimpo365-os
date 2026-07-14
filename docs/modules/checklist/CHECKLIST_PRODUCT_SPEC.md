@@ -272,6 +272,17 @@ frequency 는 ChecklistItem 정의에 속한다.
 weekly/monthly 활성화는 스키마 대개조가 아니라 후속 규칙 필드 + selector 를 additive 하게 추가하는 방향으로 한다.
 ```
 
+시기(timing) 필드 (P3-07.5):
+
+```text
+ChecklistItem.timing choices: opening(오픈) / specific(특정 시점) / closing(마감), 기본값 specific.
+timing 도 frequency 처럼 ChecklistItem 정의에 속한다 → 여러 부서 배정은 같은 timing 을 공유하고,
+부서별 시기가 다르면 별도 ChecklistItem 으로 정의한다.
+별도 시각(시·분) 입력 필드는 두지 않는다. 특정 시각·상황(예: "점심시간 전", "오후 3시")은 title 문구로 적는다.
+오늘 화면·누락 현황은 미완료 우선 + 시기(오픈→특정 시점→마감) 순으로 정렬하고 시기 라벨을 표시한다.
+Admin 감사 필드(작성자/수정자/시각)는 자동 기록·읽기 전용이며 사용자가 선택하지 않는다.
+```
+
 ---
 
 ## 13. 기존 마감 양식 처리 결정

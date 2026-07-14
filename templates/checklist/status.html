@@ -23,7 +23,7 @@
     <p class="checklist-missing-title">미완료 항목</p>
     <ul class="checklist-missing-list">
       {% for assignment in status.missing_items %}
-      <li>{{ assignment.item.title }}</li>
+      <li><span class="badge checklist-timing">{{ assignment.item.get_timing_display }}</span> {{ assignment.item.title }}</li>
       {% endfor %}
     </ul>
   {% else %}

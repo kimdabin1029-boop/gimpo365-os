@@ -1179,11 +1179,16 @@ Checklist Module은 김포365OS MVP의 핵심 모듈이다. **Phase 3(v1) 구현
 > - 앱: `checklist` (namespace `checklist`). 3모델 ChecklistItem / DepartmentChecklistItem /
 >   ChecklistRecord, 모두 core.OperationalBaseModel 상속. UniqueConstraint(item, department),
 >   (department_item, date). FK 는 PROTECT(및 completed_by=SET_NULL), CASCADE 없음.
+> - ChecklistItem.timing(opening/specific/closing, 기본 specific; P3-07.5, migration 0002 additive).
+>   timing 은 항목 정의 속성이며 시각 입력 필드는 없다.
 > - URL: `/checklists/`(today) · `/checklists/status/`(status) · `/checklists/<pk>/complete|cancel/`(POST).
 > - selector: get_today_checklist_items(2쿼리), get_checklist_status_for_user(3쿼리).
+>   오늘 화면 정렬 = 미완료 우선 → timing → sort_order → 제목 → pk (완료 항목 하단). 누락 현황도 timing 우선.
 > - service: complete/cancel_checklist_item (transaction.atomic + select_for_update, 멱등·재활성).
 > - 권한: 완료/취소는 본인 활성 부서만(타 부서 403). 누락 현황은 accounts.mixins.TeamLeaderRequiredMixin
 >   (STAFF 403, TEAM_LEADER 본인 부서, MANAGER/ADMIN 전체 활성 부서).
+> - admin: 감사 필드(created_by/updated_by/created_at/updated_at) 자동 기록·읽기 전용,
+>   ChecklistItemAdmin 에 활성 배정 부서 표시(Prefetch 로 N+1 방지).
 > - 날짜: timezone.localdate() (KST). 완료 취소는 hard delete 가 아니라 is_active=False.
 
 Checklist는 전 직원의 일일 사용 습관과 직접 연결된다.

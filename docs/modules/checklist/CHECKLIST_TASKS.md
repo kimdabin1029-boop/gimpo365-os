@@ -47,11 +47,12 @@ Notice / Inventory 기능을 깨지 않는다. inventory 코드는 건드리지 
 [x] P3-04  완료 / 취소 처리 (service, 멱등·재활성, 트랜잭션)
 [x] P3-05  TEAM_LEADER 이상 누락 현황
 [x] P3-06  OS 홈 / sidebar 실사용 진입
-[x] P3-07  전체 QA 및 Phase 3 마감 (이 커밋)
+[x] P3-07  전체 QA 및 Phase 3 마감
+[x] P3-07.5 사용자 인수 테스트 보완 (audit 필드 읽기 전용·자동 기록, 배정 부서 표시, timing 필드, 미완료 우선 정렬)
 [ ] P3-08  배포 후보 점검 (구현 완료 아님 — 다빈 인수 테스트·피드백 이후 별도 진행)
 ```
 
-Checklist v1 은 P3-00~P3-07 로 구현 완료되었고, OS MVP 컷라인(재고관리 + 공지사항 + 체크리스트)에
+Checklist v1 은 P3-00~P3-07.5 로 구현 완료되었고, OS MVP 컷라인(재고관리 + 공지사항 + 체크리스트)에
 도달했다. Phase 3 완료 = 기능 MVP 컷라인 도달이며, 실제 운영 배포 가능 여부는 P3-08 에서 검증한다.
 
 ---
@@ -178,6 +179,31 @@ migration 성격: 신규 테이블 3개 + FK + UniqueConstraint (additive, rever
 - OS_TASKS.md Phase 3 완료 반영, Checklist 문서 상태 갱신, 운영 기준 정리.
 완료: QA 통과 기록, 문서 마감, working tree clean.
 커밋: docs: close checklist phase 3
+```
+
+---
+
+## P3-07.5 사용자 인수 테스트 보완  [코드 + migration, 승인 필요]
+
+```text
+배경: 다빈 직접 인수 테스트에서 확인된 배포 전 필수 사용성 보완. 핵심 운영 흐름은 유지
+      (부서 단위, 실제 수행자 완료, 승인/반려 없음, TEAM_LEADER 이상 누락 조회, daily만 실행).
+범위:
+- ChecklistItem.timing 필드 추가(Timing: opening/specific/closing, 기본 specific)
+  + checklist.0002_checklistitem_timing (AddField 1개, additive, 리허설 DB 적용).
+  timing 은 항목 정의 속성이며 부서별로 다르면 별도 항목으로 정의(시각 입력 필드 없음).
+- Admin 감사 필드(created_by/updated_by/created_at/updated_at) 읽기 전용화(사용자 선택 dropdown 제거).
+  save_model 이 로그인 관리자를 자동 기록: 신규는 created_by+updated_by, 수정은 updated_by만.
+- ChecklistItemAdmin list_display 에 timing·배정 부서 표시(활성 배정·활성 부서만, 부서명 순, 없으면 "미배정").
+  get_queryset 에서 활성 배정을 Prefetch(to_attr) → 목록 N+1 방지. list_filter 에 timing 추가.
+- 오늘 화면 정렬: 미완료 우선 → timing(opening→specific→closing) → sort_order → 제목 → pk.
+  완료/취소 redirect 후 완료 항목이 하단으로 자동 이동(2쿼리 유지).
+- 누락 현황 missing_items 정렬: timing → sort_order → 제목 → pk (최대 3쿼리 유지).
+- 오늘 화면·누락 현황에 timing 라벨 표시(기존 badge 스타일 재사용, 새 CSS 체계 없음).
+금지: TEAM_LEADER 현황 재설계, 누락 현황에서 완료, weekly/monthly 실행, 시각 입력 필드,
+      알림/독촉/통계/CRUD 화면/첨부/개인 담당자/승인·반려, Notice·Inventory 기능 수정.
+완료: check/test 통과, makemigrations dry-run No changes, 리허설 0002 적용, 수동 smoke QA, working tree clean.
+커밋: feature: polish checklist after user testing
 ```
 
 ---
