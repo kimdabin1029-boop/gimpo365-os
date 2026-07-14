@@ -14,10 +14,14 @@
 현재고 = APPROVED StockTransaction.quantity_delta 합계(계산형, 저장/캐시 필드 없음).
 따라서 StockTransaction 전체 삭제만으로 모든 관리품목 현재고가 0이 된다(별도 초기화 불필요).
 
-안전장치(정식 운영 후보 DB 전용):
-- 기본 동작은 dry-run(미삭제). 실제 삭제는 --yes 와 --confirm-db <연결 DB명 정확히 일치> 동시 필요.
-- --confirm-db 값이 현재 연결 DB명과 다르면 데이터 변경 없이 거부한다.
-- 전체 삭제는 하나의 transaction.atomic 안에서 수행하며, 중간 오류 시 전체 rollback 한다.
+안전장치(정식 운영 후보 DB 전용). 실제 삭제는 아래 세 조건을 모두 만족할 때만:
+- (1) --yes 가 있고 --dry-run 이 아니다.
+- (2) --confirm-db 값이 현재 연결 DB명(connection.settings_dict["NAME"])과 정확히 일치한다.
+- (3) settings.ALLOW_ALPHA_TRANSACTION_RESET is True (환경변수 ALLOW_ALPHA_TRANSACTION_RESET).
+셋 중 하나라도 불만족이면 데이터 변경 없이 CommandError 로 차단한다(transaction 진입 전 검사).
+정식 운영에서도 DB명은 계속 gimpo365os_prod 이므로, --confirm-db 만으로는 실수 재실행을 막지 못한다.
+(3) 환경변수 가드는 알파 종료 시에만 일시 활성화하고 실행 후 즉시 false 로 되돌린다.
+전체 삭제는 하나의 transaction.atomic 안에서 수행하며, 중간 오류 시 전체 rollback 한다.
 
 주의:
 - 이 명령은 배포 전 1회 유지보수 예외로 운영기록을 물리 삭제한다(취소 처리가 아님).
@@ -26,6 +30,7 @@
 - 이 명령으로 공지사항(Notice)은 삭제하지 않는다(사람이 선별 삭제).
 """
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.sessions.models import Session
 from django.core.management.base import BaseCommand, CommandError
@@ -152,13 +157,25 @@ class Command(BaseCommand):
             self._print_dry_run(db_name, keep, delete, optional)
             return
 
-        # 실제 삭제: --confirm-db 가 현재 연결 DB명과 정확히 일치해야 한다.
+        # 실제 삭제: 파괴적 작업 전에 모든 안전장치를 통과해야 한다(transaction 진입 전 검사).
+        # (1) --confirm-db 가 현재 연결 DB명과 정확히 일치해야 한다.
         confirm_db = options["confirm_db"]
         if not confirm_db or confirm_db != db_name:
             raise CommandError(
                 "실제 삭제가 거부되었습니다. "
                 f"현재 연결 DB='{db_name}' 와 --confirm-db 값이 정확히 일치해야 합니다. "
                 f"입력값: {confirm_db!r}. 데이터는 변경되지 않았습니다."
+            )
+
+        # (2) 운영 재실행 방지 가드: 설정이 명시적으로 True 여야 한다.
+        #     정식 운영에서도 DB명은 계속 gimpo365os_prod 이므로, --confirm-db 만으로는
+        #     실수 재실행을 막지 못한다. 알파 종료 시에만 ALLOW_ALPHA_TRANSACTION_RESET=true 로
+        #     일시 활성화하고 실행 후 즉시 false 로 되돌린다. (DB명과 별개의 독립 가드)
+        if not settings.ALLOW_ALPHA_TRANSACTION_RESET:
+            raise CommandError(
+                "알파 운영기록 초기화가 비활성화되어 있습니다. "
+                "실행 전 ALLOW_ALPHA_TRANSACTION_RESET=true 를 명시적으로 설정해야 합니다. "
+                "(정식 운영 중에는 활성화하지 않습니다.) 데이터는 변경되지 않았습니다."
             )
 
         deleted = self._execute_delete(options)
@@ -204,6 +221,12 @@ class Command(BaseCommand):
         self.stdout.write("현재 데이터베이스:")
         self.stdout.write(f"- {db_name}")
         self.stdout.write("")
+        allow = settings.ALLOW_ALPHA_TRANSACTION_RESET
+        self.stdout.write("실제 실행 허용 설정:")
+        self.stdout.write(
+            f"- ALLOW_ALPHA_TRANSACTION_RESET: {'활성' if allow else '비활성'}"
+        )
+        self.stdout.write("")
         self.stdout.write("보존 예정:")
         for name, n in keep.items():
             self.stdout.write(f"- {name}: {n}")
@@ -224,8 +247,10 @@ class Command(BaseCommand):
         self.stdout.write("")
         self.stdout.write(
             self.style.WARNING(
-                "[dry-run] 실제 삭제를 수행하지 않았습니다. 실제 실행:\n"
-                f"  python manage.py reset_alpha_transactions --yes --confirm-db {db_name}"
+                "[dry-run] 실제 삭제를 수행하지 않았습니다. 실제 실행(환경변수 활성화 필요):\n"
+                "  1) ALLOW_ALPHA_TRANSACTION_RESET=true 설정 후 새 프로세스로\n"
+                f"  2) python manage.py reset_alpha_transactions --yes --confirm-db {db_name}\n"
+                "  실행 후 ALLOW_ALPHA_TRANSACTION_RESET=false 로 되돌립니다."
             )
         )
 

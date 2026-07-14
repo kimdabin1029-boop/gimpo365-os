@@ -753,16 +753,20 @@ python manage.py reset_operational_data --yes --allow-production   # DEBUG=False
 선택 옵션(완료 기록·세션)과 현재고 0 자동 검증을 추가로 제공한다.
 
 ```text
-python manage.py reset_alpha_transactions --dry-run                              # 기본 dry-run(무변경)
-python manage.py reset_alpha_transactions --yes --confirm-db gimpo365os_prod     # 실제 삭제(연결 DB명 일치 필수)
+python manage.py reset_alpha_transactions --dry-run                              # 기본 dry-run(무변경, 가드와 무관)
+# 실제 삭제: .env 에 ALLOW_ALPHA_TRANSACTION_RESET=true 설정 후 새 프로세스로
+python manage.py reset_alpha_transactions --yes --confirm-db gimpo365os_prod     # 실제 삭제(연결 DB명 일치 + 가드 True 필수)
 python manage.py reset_alpha_transactions --yes --confirm-db gimpo365os_prod --include-checklist-records --clear-sessions
+# 실행 후 즉시 ALLOW_ALPHA_TRANSACTION_RESET=false 복구 + 프로세스 재시작
 ```
 ```text
 - 삭제(기본): StockTransaction / CartItem / OrderItem / Order (자식→부모, transaction.atomic)
 - 선택: --include-checklist-records(ChecklistRecord), --clear-sessions(django_session)
 - 보존: Department / User / Supplier / Item / ManagedItem / ChecklistItem /
   DepartmentChecklistItem / Notice (공지사항은 자동 삭제하지 않음 — 사람이 선별)
-- 안전장치: 기본 dry-run, 실제 삭제는 --yes + --confirm-db<연결 DB명 일치>. 불일치 시 무변경 거부.
+- 안전장치(세 조건 모두): 기본 dry-run / 실제 삭제는 --yes + --confirm-db<연결 DB명 일치>
+  + settings.ALLOW_ALPHA_TRANSACTION_RESET=true. 하나라도 불만족 시 무변경 거부(CommandError).
+  ALLOW_ALPHA_TRANSACTION_RESET 은 정식 운영에서도 DB명이 동일한 점을 보완하는 재실행 방지 가드(기본 False).
 - 현재고: 계산형이라 거래 삭제만으로 전 품목 0. COMPLETE 출력이 거래 0·현재고 0·기준정보 일치를 자동 검증.
 - 실행 전 전체 백업 필수. 정식 운영 전환에는 python manage.py flush 를 쓰지 않는다.
 - 상세: docs/modules/inventory/RESET_ALPHA_TRANSACTIONS_SPEC.md

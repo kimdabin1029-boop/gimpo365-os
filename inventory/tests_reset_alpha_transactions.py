@@ -9,11 +9,13 @@ from decimal import Decimal
 from io import StringIO
 from unittest import mock
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.sessions.models import Session
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import connection
+from django.test import override_settings
 
 from accounts.models import Role
 from checklist.models import (
@@ -182,6 +184,7 @@ class ConfirmDbGuardTest(_ResetAlphaBase):
             self._run("--yes", "--confirm-db", "gimpo365os_rehearsal_WRONG")
         self.assertTrue(StockTransaction.objects.exists())  # 미삭제
 
+    @override_settings(ALLOW_ALPHA_TRANSACTION_RESET=True)
     def test_yes_with_matching_confirm_db_executes(self):
         self._make_inventory_records()
         self.assertTrue(StockTransaction.objects.exists())
@@ -189,6 +192,7 @@ class ConfirmDbGuardTest(_ResetAlphaBase):
         self.assertFalse(StockTransaction.objects.exists())  # 삭제됨
 
 
+@override_settings(ALLOW_ALPHA_TRANSACTION_RESET=True)
 class MasterDataPreservedTest(_ResetAlphaBase):
     """15.3 기준정보 보존."""
 
@@ -224,6 +228,7 @@ class MasterDataPreservedTest(_ResetAlphaBase):
         self.assertEqual(u.department_id, self.dept_skin.pk)
 
 
+@override_settings(ALLOW_ALPHA_TRANSACTION_RESET=True)
 class OperationalRecordsDeletedTest(_ResetAlphaBase):
     """15.4 Inventory 운영기록 삭제 / 15.5 현재고 0."""
 
@@ -253,6 +258,7 @@ class OperationalRecordsDeletedTest(_ResetAlphaBase):
         self.assertIn("기준정보 건수 일치: 예", out)
 
 
+@override_settings(ALLOW_ALPHA_TRANSACTION_RESET=True)
 class ChecklistRecordOptionTest(_ResetAlphaBase):
     """15.6 ChecklistRecord 옵션."""
 
@@ -273,6 +279,7 @@ class ChecklistRecordOptionTest(_ResetAlphaBase):
         self.assertEqual(DepartmentChecklistItem.objects.count(), assign_n)  # 배정 유지
 
 
+@override_settings(ALLOW_ALPHA_TRANSACTION_RESET=True)
 class SessionOptionTest(_ResetAlphaBase):
     """15.7 Session 옵션."""
 
@@ -289,6 +296,7 @@ class SessionOptionTest(_ResetAlphaBase):
         self.assertEqual(User.objects.count(), user_n)  # 사용자 유지
 
 
+@override_settings(ALLOW_ALPHA_TRANSACTION_RESET=True)
 class AtomicityTest(_ResetAlphaBase):
     """15.8 원자성: 삭제 도중 오류 → 전체 rollback."""
 
@@ -319,6 +327,7 @@ class AtomicityTest(_ResetAlphaBase):
         self.assertGreater(get_current_stock(self.mi), Decimal("0"))  # 현재고 복원
 
 
+@override_settings(ALLOW_ALPHA_TRANSACTION_RESET=True)
 class IdempotencyTest(_ResetAlphaBase):
     """15.9 멱등성: 2회 실행해도 오류 없음."""
 
@@ -340,3 +349,78 @@ class IdempotencyTest(_ResetAlphaBase):
         self.assertEqual(ManagedItem.objects.count(), master_before["ManagedItem"])
         self.assertEqual(Supplier.objects.count(), master_before["Supplier"])
         self.assertEqual(get_current_stock(self.mi), Decimal("0"))
+
+
+class AllowResetGuardTest(_ResetAlphaBase):
+    """P3-08A-01 보완: ALLOW_ALPHA_TRANSACTION_RESET 운영 재실행 방지 가드."""
+
+    def test_default_setting_is_false(self):
+        # 10.1 환경변수 미설정 시 기본 False (config/settings.py env.bool default=False).
+        self.assertFalse(settings.ALLOW_ALPHA_TRANSACTION_RESET)
+
+    @override_settings(ALLOW_ALPHA_TRANSACTION_RESET=False)
+    def test_dry_run_allowed_when_guard_false(self):
+        # 10.2 가드 False 여도 dry-run 은 허용, 데이터 무변경, 가드 상태 출력.
+        self._make_inventory_records()
+        before = StockTransaction.objects.count()
+        out = self._run()  # dry-run
+        self.assertEqual(StockTransaction.objects.count(), before)
+        self.assertIn("ALLOW_ALPHA_TRANSACTION_RESET", out)
+        self.assertIn("비활성", out)
+
+    @override_settings(ALLOW_ALPHA_TRANSACTION_RESET=False)
+    def test_real_execution_blocked_when_guard_false(self):
+        # 10.3 가드 False + --yes + 올바른 --confirm-db → CommandError, 모든 데이터 무변경.
+        self._make_inventory_records()
+        before = {
+            "tx": StockTransaction.objects.count(),
+            "order": Order.objects.count(),
+            "order_item": OrderItem.objects.count(),
+            "cart": CartItem.objects.count(),
+            "chk": ChecklistRecord.objects.count(),
+            "session": Session.objects.count(),
+            "user": User.objects.count(),
+            "mi": ManagedItem.objects.count(),
+            "stock": get_current_stock(self.mi),
+        }
+        with self.assertRaises(CommandError):
+            self._run("--yes", "--confirm-db", self._db_name())
+        self.assertEqual(StockTransaction.objects.count(), before["tx"])
+        self.assertEqual(Order.objects.count(), before["order"])
+        self.assertEqual(OrderItem.objects.count(), before["order_item"])
+        self.assertEqual(CartItem.objects.count(), before["cart"])
+        self.assertEqual(ChecklistRecord.objects.count(), before["chk"])
+        self.assertEqual(Session.objects.count(), before["session"])
+        self.assertEqual(User.objects.count(), before["user"])
+        self.assertEqual(ManagedItem.objects.count(), before["mi"])
+        self.assertEqual(get_current_stock(self.mi), before["stock"])
+
+    @override_settings(ALLOW_ALPHA_TRANSACTION_RESET=False)
+    def test_guard_false_blocks_even_with_include_and_clear_options(self):
+        # 옵션을 함께 줘도 가드 False 면 차단, ChecklistRecord·Session 무변경.
+        chk_before = ChecklistRecord.objects.count()
+        session_before = Session.objects.count()
+        with self.assertRaises(CommandError):
+            self._run(
+                "--yes", "--confirm-db", self._db_name(),
+                "--include-checklist-records", "--clear-sessions",
+            )
+        self.assertEqual(ChecklistRecord.objects.count(), chk_before)
+        self.assertEqual(Session.objects.count(), session_before)
+
+    @override_settings(ALLOW_ALPHA_TRANSACTION_RESET=True)
+    def test_real_execution_allowed_when_guard_true(self):
+        # 10.4 가드 True + --yes + 올바른 --confirm-db → 기존 정상 삭제.
+        self._make_inventory_records()
+        self.assertTrue(StockTransaction.objects.exists())
+        self._run("--yes", "--confirm-db", self._db_name())
+        self.assertEqual(StockTransaction.objects.count(), 0)
+        self.assertEqual(get_current_stock(self.mi), Decimal("0"))
+
+    @override_settings(ALLOW_ALPHA_TRANSACTION_RESET=True)
+    def test_confirm_db_still_required_even_when_guard_true(self):
+        # 10.6 가드 True 여도 --confirm-db 불일치는 여전히 차단(독립 안전장치).
+        self._make_inventory_records()
+        with self.assertRaises(CommandError):
+            self._run("--yes", "--confirm-db", "WRONG_DB_NAME")
+        self.assertTrue(StockTransaction.objects.exists())  # 미삭제

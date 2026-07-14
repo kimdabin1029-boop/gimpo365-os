@@ -305,14 +305,18 @@ python manage.py test
 
 ```powershell
 # 1) 반드시 먼저 전체 백업 (backup_db.bat / §3)
-# 2) 삭제·보존 예상 건수 검토 (DB 변경 없음)
+# 2) 삭제·보존 예상 건수 + 가드 상태 검토 (DB 변경 없음)
 python manage.py reset_alpha_transactions --dry-run
 
-# 3) 다빈 승인 후 실제 실행: --confirm-db 값이 현재 연결 DB명과 정확히 일치해야 한다
+# 3) 다빈 승인 후 실제 실행:
+#    (a) .env 에 ALLOW_ALPHA_TRANSACTION_RESET=true 설정 후 새 프로세스로 실행
+#    (b) --confirm-db 값이 현재 연결 DB명과 정확히 일치해야 한다
 python manage.py reset_alpha_transactions --yes --confirm-db gimpo365os_prod
 
 # (선택) 완료 기록·로그인 세션도 함께 초기화
 python manage.py reset_alpha_transactions --yes --confirm-db gimpo365os_prod --include-checklist-records --clear-sessions
+
+# 4) 실행 후 즉시 ALLOW_ALPHA_TRANSACTION_RESET=false 로 복구 + Django 프로세스 재시작
 ```
 
 ```text
@@ -320,7 +324,9 @@ python manage.py reset_alpha_transactions --yes --confirm-db gimpo365os_prod --i
       DepartmentChecklistItem / Notice (+ migration/ContentType/Permission).
 삭제(기본): StockTransaction / CartItem / OrderItem / Order (자식→부모, transaction.atomic).
 현재고: 계산형(APPROVED quantity_delta 합계)이라 거래 삭제만으로 전 품목 0. 별도 초기화 불필요.
-안전장치: 기본 dry-run, 실제 삭제는 --yes + --confirm-db<연결 DB명 일치>. 불일치 시 무변경 거부.
+안전장치(세 조건 모두): 기본 dry-run / 실제 삭제는 --yes + --confirm-db<연결 DB명 일치>
+      + ALLOW_ALPHA_TRANSACTION_RESET=true. 하나라도 불만족 시 무변경 거부.
+      ALLOW_ALPHA_TRANSACTION_RESET 은 정식 운영에서도 DB명이 동일한 점을 보완하는 재실행 방지 가드다.
 공지사항: 자동 삭제하지 않음(사람이 선별 삭제).
 상세: docs/modules/inventory/RESET_ALPHA_TRANSACTIONS_SPEC.md
 ```
@@ -360,7 +366,7 @@ DB 비밀번호·pgpass 정보를 로그·커밋·출력에 남기지 않는다.
 [운영 복구]     (승인·중단 필수, -d 두 번 확인) pg_restore -d gimpo365_inventory ...
 [migration]    리허설: makemigrations --check --dry-run → migrate → check/test
               운영: 백업 → migrate --plan → migrate → check → smoke
-[알파리셋]      백업 → reset_alpha_transactions --dry-run → 승인 → --yes --confirm-db gimpo365os_prod (flush 금지)
+[알파리셋]      백업 → --dry-run → 승인 → ALLOW_ALPHA_TRANSACTION_RESET=true(새 프로세스) → --yes --confirm-db gimpo365os_prod → 즉시 false 복구·재시작 (flush 금지)
 [항상]          작업 전 Select-String .env POSTGRES_DB 로 대상 DB 확인. --clean 쓸 땐 -d 값 두 번 확인.
 ```
 

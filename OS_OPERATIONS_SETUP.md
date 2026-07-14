@@ -235,14 +235,16 @@ python manage.py runserver 0.0.0.0:8000
 3. 실제 공지사항·체크리스트 항목 설정
 4. 알파테스트 종료 시각 공지 → 모든 입력 일시 중지
 5. gimpo365os_prod 전체 백업 (backup_db.bat)
-6. python manage.py reset_alpha_transactions --dry-run  → 삭제·보존 예상 건수 검토
-7. 다빈 승인 후 python manage.py reset_alpha_transactions --yes --confirm-db gimpo365os_prod
+6. python manage.py reset_alpha_transactions --dry-run  → 삭제·보존 예상 건수 + 가드 상태 검토
+7. 다빈 승인 후: (a) .env 에 ALLOW_ALPHA_TRANSACTION_RESET=true 설정 → (b) 새 프로세스로
+   python manage.py reset_alpha_transactions --yes --confirm-db gimpo365os_prod
 8. 기준정보 건수 검증 + 관리품목 현재고 전부 0 확인
-9. 실물 재고 조사 → 최초재고(또는 실사조정)로 실제 수량 등록
-10. 테스트 공지·임시 계정 선별 정리, 로그인 세션 초기화(--clear-sessions)
-11. 최종 DB 백업
-12. 8001 서버 종료 → 동일 DB 를 8000 포트에서 실행
-13. 원내 PC 접속 확인 → 정식 운영 시작
+9. ALLOW_ALPHA_TRANSACTION_RESET=false 로 즉시 복구 + Django 프로세스 재시작
+10. 실물 재고 조사 → 최초재고(또는 실사조정)로 실제 수량 등록
+11. 테스트 공지·임시 계정 선별 정리, 로그인 세션 초기화(--clear-sessions; 이때도 7·9 절차 동일)
+12. 최종 DB 백업
+13. 8001 서버 종료 → 동일 DB 를 8000 포트에서 실행
+14. 원내 PC 접속 확인 → 정식 운영 시작
 ```
 
 ```text
@@ -250,7 +252,15 @@ python manage.py runserver 0.0.0.0:8000
 flush 는 사용자·부서·품목 등 기준정보까지 삭제한다. 정식 운영 전환에는 reset_alpha_transactions 만 사용한다.
 ```
 
-> `reset_alpha_transactions` 안전장치는 **--confirm-db(연결 DB명 정확 일치) + 전체 백업 + 다빈 승인**이다.
+```text
+정식 운영 시작 후:
+- ALLOW_ALPHA_TRANSACTION_RESET=false 유지, 환경변수 활성화 금지.
+- reset_alpha_transactions 실제 실행 금지. dry-run 은 진단 목적으로만 허용.
+```
+
+> `reset_alpha_transactions` 안전장치(세 조건 모두): **--confirm-db(연결 DB명 정확 일치)
+> + ALLOW_ALPHA_TRANSACTION_RESET=true + 전체 백업 + 다빈 승인**. 환경변수는 실행 중 프로세스에
+> 자동 반영되지 않으므로 설정 변경 후 **새 프로세스로** 명령을 실행한다.
 > 실제 초기화는 이번 작업 범위가 아니라 알파테스트 종료 후 별도 승인·실행한다.
 > 상세: docs/modules/inventory/RESET_ALPHA_TRANSACTIONS_SPEC.md
 

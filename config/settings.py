@@ -39,6 +39,13 @@ DEBUG = env("DJANGO_DEBUG")
 
 ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
 
+# 알파테스트 종료 시 운영기록 초기화(reset_alpha_transactions)의 실제 실행을 일시 허용하는 가드.
+# 기본 False. 정식 운영 중에는 반드시 False 로 유지하고, 알파 종료 1회 실행 시에만 임시로 true 로 설정한다.
+# --confirm-db(연결 DB명 일치)와 별개의 독립 가드다. (P3-08A-01 보완)
+ALLOW_ALPHA_TRANSACTION_RESET = env.bool(
+    "ALLOW_ALPHA_TRANSACTION_RESET", default=False
+)
+
 
 # ---------------------------------------------------------------------------
 # 애플리케이션
