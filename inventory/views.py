@@ -1099,7 +1099,7 @@ class StockExportView(ManagerRequiredMixin, _StockFilterMixin, View):
                 mi.item.specification or "",
                 mi.current_stock,
                 mi.minimum_stock,
-                mi.get_unit_display(),
+                mi.item.get_unit_display(),
                 mi.default_supplier.name if mi.default_supplier_id else "",
                 mi.storage_location or "",
                 "활성" if mi.is_active else "사용중지",

@@ -240,7 +240,10 @@ Phase 3 Checklist v1 완료 요약 (P3-00~P3-07.5):
              ChecklistItem.timing 필드 + checklist.0002, 오늘 화면 미완료 우선·timing 정렬·표시, 누락 현황 timing)
 [x] P3-08A-01 알파 운영기록 리셋 명령 (reset_alpha_transactions: 기준정보 보존 + Inventory 운영기록만 초기화,
              --confirm-db 안전장치, --include-checklist-records/--clear-sessions, 현재고 0 자동 검증. 실제 초기화는 미실행)
+[x] P3-07.6  Inventory 단위 소유권 정정 (ManagedItem.unit → Item.unit, 3단계 migration 0006~0008,
+             실데이터 감사·고아 Item#109/#110 정리, 규격 필드 미추가, 코드/Admin/Form/template 전환. 실제 migration 미적용)
 [ ] P3-08    배포 후보 점검 (구현 아님 — 내부망/계정·부서·권한/백업·복구/리허설→운영 반영 절차 점검)
+             ※ 알파테스트는 P3-07.6 단위 구조 정정 후 진행한다.
 
 Checklist 후순위(미구현): weekly/monthly 실행 규칙, 알림/독촉, 기간 통계, 파일첨부, 별도 관리 UI.
 정착 루프(운영 반영 → 안내/교육 → 1~2주 관찰 → 조정)는 P3-08 이후 운영 반영 단계에서 진행한다.

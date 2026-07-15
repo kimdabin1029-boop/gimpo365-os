@@ -36,7 +36,7 @@
       <td class="col-dept">{{ item.department.name }}</td>
       <td class="num">{{ item.current_stock|qty }}</td>
       <td class="num">{{ item.minimum_stock|qty }}</td>
-      <td>{{ item.get_unit_display }}</td>
+      <td>{{ item.item.get_unit_display }}</td>
       <td>
         {% if item.current_stock <= 0 %}
           <span class="badge-low">재고 없음</span>

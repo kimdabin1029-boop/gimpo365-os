@@ -211,8 +211,9 @@ class Command(BaseCommand):
         for dept_key in selected:
             dept = dept_objs[DEPT_KEY[dept_key]]
             for name, cat, unit, min_stock, initial in ITEM_PLAN[dept_key]:
+                # 주문단위(unit)는 Item 소유. (P3-07.6)
                 item, item_created = Item.objects.get_or_create(
-                    name=name, defaults={"category": cat}
+                    name=name, defaults={"category": cat, "unit": unit}
                 )
                 c["item_new" if item_created else "item_reuse"] += 1
 
@@ -221,7 +222,6 @@ class Command(BaseCommand):
                     item=item,
                     department=dept,
                     defaults={
-                        "unit": unit,
                         "minimum_stock": min_stock,
                         "storage_location": f"{dept.name} 수납장",
                         "default_supplier": supplier,

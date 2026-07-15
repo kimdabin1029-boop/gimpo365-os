@@ -19,7 +19,7 @@
       <tr>
         <td class="col-name">{{ ci.managed_item.item.name }}</td>
         <td class="col-dept">{{ ci.managed_item.department.name }}</td>
-        <td class="num">{{ ci.quantity|qty }} {{ ci.managed_item.get_unit_display }}</td>
+        <td class="num">{{ ci.quantity|qty }} {{ ci.managed_item.item.get_unit_display }}</td>
         <td>{{ ci.memo|default:"-" }}</td>
       </tr>
       {% endfor %}

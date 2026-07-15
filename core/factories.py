@@ -114,15 +114,15 @@ def create_supplier(name="기본공급사", **kwargs):
     return Supplier.objects.create(name=name, **kwargs)
 
 
-def create_item(name, *, category=ItemCategory.GENERAL_SUPPLY, **kwargs):
-    return Item.objects.create(name=name, category=category, **kwargs)
+def create_item(name, *, category=ItemCategory.GENERAL_SUPPLY, unit=Unit.EA, **kwargs):
+    # unit(주문단위)은 Item 소유. (P3-07.6)
+    return Item.objects.create(name=name, category=category, unit=unit, **kwargs)
 
 
 def create_managed_item(
     *,
     item,
     department,
-    unit=Unit.EA,
     minimum_stock=0,
     default_supplier=None,
     **kwargs,
@@ -130,7 +130,6 @@ def create_managed_item(
     return ManagedItem.objects.create(
         item=item,
         department=department,
-        unit=unit,
         minimum_stock=minimum_stock,
         default_supplier=default_supplier,
         **kwargs,

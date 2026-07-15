@@ -43,26 +43,34 @@ class SupplierAdmin(admin.ModelAdmin):
 
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):
-    list_display = ["name", "category", "specification", "is_active"]
-    list_filter = ["category", "is_active"]
+    # 주문단위(unit)는 품목 소유. 등록·수정 시 필수 입력. (P3-07.6)
+    list_display = ["name", "category", "unit", "specification", "is_active"]
+    list_filter = ["category", "unit", "is_active"]
     search_fields = ["name"]
 
 
 @admin.register(ManagedItem)
 class ManagedItemAdmin(admin.ModelAdmin):
+    # 단위는 Item 소유이므로 ManagedItem 에서는 입력하지 않고, 선택 Item 의 단위를 읽기 전용 표시한다. (P3-07.6)
     list_display = [
         "item",
+        "item_unit",
         "department",
-        "unit",
         "minimum_stock",
         "default_supplier",
         "is_active",
     ]
-    list_filter = ["department", "is_active", "unit"]
+    list_filter = ["department", "is_active", "item__unit"]
     search_fields = ["item__name"]
     autocomplete_fields = ["item", "department", "default_supplier"]
-    # 운영 개시 후 unit 변경 금지는 ManagedItem.clean() 에서 검증되며,
-    # Admin ModelForm 저장 시 full_clean 을 통해 동일하게 차단된다. (TECH_SPEC §6.4)
+
+    @admin.display(description="주문단위", ordering="item__unit")
+    def item_unit(self, obj):
+        return obj.item.get_unit_display()
+
+    def get_queryset(self, request):
+        # 목록의 item_unit 표시로 인한 N+1 방지.
+        return super().get_queryset(request).select_related("item", "department", "default_supplier")
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         field = super().formfield_for_dbfield(db_field, request, **kwargs)

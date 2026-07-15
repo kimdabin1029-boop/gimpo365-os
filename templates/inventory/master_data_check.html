@@ -35,7 +35,7 @@
       <tr>
         <td class="col-dept">{{ mi.department.name }}</td>
         <td class="col-name">{{ mi.item.name }}</td>
-        <td>{{ mi.item.specification|default:"-" }} / {{ mi.get_unit_display }}</td>
+        <td>{{ mi.item.specification|default:"-" }} / {{ mi.item.get_unit_display }}</td>
         <td>{{ mi.default_supplier.name|default:"-" }}</td>
         <td class="num">{{ mi.minimum_stock|qty }}</td>
         <td>{{ mi.storage_location|default:"-" }}</td>

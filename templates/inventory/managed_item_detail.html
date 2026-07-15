@@ -6,11 +6,11 @@
 
 <div class="card">
   <dl class="tx-detail">
-    <dt>관리품목</dt><dd>{{ mi.item.name }} / {{ mi.department.name }} / {{ mi.get_unit_display }}</dd>
+    <dt>관리품목</dt><dd>{{ mi.item.name }} / {{ mi.department.name }} / {{ mi.item.get_unit_display }}</dd>
     <dt>품목명</dt><dd>{{ mi.item.name }}{% if mi.item.specification %} <span class="muted">({{ mi.item.specification }})</span>{% endif %}</dd>
     <dt>부서</dt><dd>{{ mi.department.name }}</dd>
-    <dt>현재고</dt><dd>{{ mi.current_stock|qty }} {{ mi.get_unit_display }} <span class="muted">(APPROVED 거래 합계)</span></dd>
-    <dt>최소재고</dt><dd>{{ mi.minimum_stock|qty }} {{ mi.get_unit_display }}</dd>
+    <dt>현재고</dt><dd>{{ mi.current_stock|qty }} {{ mi.item.get_unit_display }} <span class="muted">(APPROVED 거래 합계)</span></dd>
+    <dt>최소재고</dt><dd>{{ mi.minimum_stock|qty }} {{ mi.item.get_unit_display }}</dd>
     <dt>기본 공급업체</dt>
     <dd>{% if mi.default_supplier %}<a href="{% url 'inventory:supplier_detail' mi.default_supplier_id %}">{{ mi.default_supplier.name }}</a>{% else %}-{% endif %}</dd>
     <dt>보관 위치</dt><dd>{{ mi.storage_location|default:"-" }}</dd>

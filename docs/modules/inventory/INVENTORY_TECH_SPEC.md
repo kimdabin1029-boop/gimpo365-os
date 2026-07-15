@@ -228,11 +228,22 @@ def can_cancel_transaction(user, transaction_obj) -> bool: ...
 |---|---|
 | name | CharField(max_length=150, unique=True) |
 | category | CharField(max_length=30, choices=ItemCategory), default 없음 |
+| unit | CharField(max_length=20, choices=Unit), 필수(null·default 없음), verbose_name="주문단위" (P3-07.6) |
 | specification | CharField(max_length=150, blank=True, default="") |
 | memo | TextField(blank=True, default="") |
 | is_active | BooleanField(default=True) |
 | created_at | auto_now_add |
 | updated_at | auto_now |
+
+주문단위(unit) — P3-07.6:
+
+```text
+unit(주문·재고관리 단위)은 품목 자체에 종속된다(부서/보관장소와 무관). 소유권을 ManagedItem→Item 으로 이동.
+같은 Item 을 여러 부서에서 관리해도 단위는 동일하다. 부서마다 단위가 달라야 하면 별도 Item 으로 정의한다.
+규격·포장 구성(예: A4*500*5EA vs A4*500*10EA)이 다르면 별도 Item 으로 등록한다(별도 규격 필드 없음).
+운영 개시 후 단위 변경 금지: 이 Item 에 연결된 ManagedItem 중 APPROVED StockTransaction 이 있으면
+Item.clean() 에서 차단(부서 무관, Admin full_clean 에서도 차단).
+```
 
 결정:
 
@@ -255,7 +266,7 @@ specification은 설명용이며 unique 기준이 아니다.
 |---|---|
 | item | ForeignKey(Item, on_delete=PROTECT) |
 | department | ForeignKey(Department, on_delete=PROTECT) |
-| unit | CharField(max_length=20, choices=Unit, default=EA) |
+| ~~unit~~ | (P3-07.6에서 제거 — 단위는 Item 소유. 표시는 item.unit 사용) |
 | minimum_stock | DecimalField(max_digits=12, decimal_places=3, default=0) |
 | storage_location | CharField(max_length=150, blank=True, default="") |
 | default_supplier | ForeignKey(Supplier, null=True, blank=True, on_delete=PROTECT) |
@@ -270,12 +281,12 @@ specification은 설명용이며 unique 기준이 아니다.
 UniqueConstraint(fields=["department", "item"], name="uniq_managed_item_department_item")
 ```
 
-unit 변경 금지:
+unit 변경 금지 (P3-07.6로 Item 으로 이동):
 
 ```text
-해당 ManagedItem에 APPROVED StockTransaction이 1건 이상 있으면 unit 변경 불가
-모델 clean()에서 검증
-Admin에서도 차단
+단위 소유권이 Item 으로 이동하면서 unit 변경 금지 규칙도 Item.clean() 으로 이동했다.
+이 Item 에 연결된 ManagedItem 중 APPROVED StockTransaction 이 1건 이상 있으면 Item.unit 변경 불가.
+ManagedItem 에는 unit 필드가 없으므로 ManagedItem.clean() 의 단위 규칙도 제거됨.
 ```
 
 ---

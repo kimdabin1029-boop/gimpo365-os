@@ -37,8 +37,8 @@
           <tr>
             <td class="col-name"><a href="{% url 'inventory:managed_item_detail' item.pk %}">{{ item.item.name }}</a></td>
             <td class="col-dept">{{ item.department.name }}</td>
-            <td class="num">{{ item.current_stock|qty }} {{ item.get_unit_display }}</td>
-            <td class="num">{{ item.minimum_stock|qty }} {{ item.get_unit_display }}</td>
+            <td class="num">{{ item.current_stock|qty }} {{ item.item.get_unit_display }}</td>
+            <td class="num">{{ item.minimum_stock|qty }} {{ item.item.get_unit_display }}</td>
             <td>
               {% if item.is_out %}
                 <span class="badge out">재고없음</span>

@@ -13,7 +13,7 @@
     <p class="cart-item-head">
       <label class="cart-select-label"><input type="checkbox" class="cart-select" name="cart_items" value="{{ ci.pk }}" form="order-select-form"> 선택</label>
       <strong>{{ ci.managed_item.item.name }}</strong>
-      <span class="muted">／ {{ ci.managed_item.department.name }} ／ {{ ci.managed_item.get_unit_display }}</span>
+      <span class="muted">／ {{ ci.managed_item.department.name }} ／ {{ ci.managed_item.item.get_unit_display }}</span>
     </p>
     <form method="post" action="{% url 'inventory:cart_item_update' ci.pk %}" class="cart-edit-form">
       {% csrf_token %}

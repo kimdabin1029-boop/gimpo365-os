@@ -13,12 +13,12 @@
     <dt>부서</dt><dd>{{ tx.managed_item.department.name }}</dd>
     <dt>수량 / 증감</dt>
     <dd>
-      입력 {{ tx.quantity_input|qty }} {{ tx.managed_item.get_unit_display }}
-      · 증감 {% if tx.quantity_delta > 0 %}+{% endif %}{{ tx.quantity_delta|qty }} {{ tx.managed_item.get_unit_display }}
+      입력 {{ tx.quantity_input|qty }} {{ tx.managed_item.item.get_unit_display }}
+      · 증감 {% if tx.quantity_delta > 0 %}+{% endif %}{{ tx.quantity_delta|qty }} {{ tx.managed_item.item.get_unit_display }}
     </dd>
     {% if tx.expected_quantity is not None %}
-      <dt>시스템 기준 수량</dt><dd>{{ tx.expected_quantity|qty }} {{ tx.managed_item.get_unit_display }}</dd>
-      <dt>실제 수량</dt><dd>{{ tx.actual_quantity|qty }} {{ tx.managed_item.get_unit_display }}</dd>
+      <dt>시스템 기준 수량</dt><dd>{{ tx.expected_quantity|qty }} {{ tx.managed_item.item.get_unit_display }}</dd>
+      <dt>실제 수량</dt><dd>{{ tx.actual_quantity|qty }} {{ tx.managed_item.item.get_unit_display }}</dd>
     {% endif %}
     <dt>공급업체</dt><dd>{% if tx.supplier %}<a href="{% url 'inventory:supplier_detail' tx.supplier_id %}">{{ tx.supplier.name }}</a>{% else %}-{% endif %}</dd>
     {% if tx.unit_price is not None %}

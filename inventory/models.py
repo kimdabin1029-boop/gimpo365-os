@@ -105,6 +105,9 @@ class Item(models.Model):
     name = models.CharField(max_length=150, unique=True)
     # category 는 default 없음 (TECH_SPEC §6.3)
     category = models.CharField(max_length=30, choices=ItemCategory.choices)
+    # 주문·재고관리 단위. 품목 자체에 종속된다(부서/보관장소와 무관, 필수). (P3-07.6)
+    # 규격·포장 구성이 다르면 별도 Item 으로 등록한다(별도 규격 필드 없음).
+    unit = models.CharField(max_length=20, choices=Unit.choices, verbose_name="주문단위")
     specification = models.CharField(max_length=150, blank=True, default="")
     memo = models.TextField(blank=True, default="")
     is_active = models.BooleanField(default=True)
@@ -115,6 +118,31 @@ class Item(models.Model):
         ordering = ["name"]
         verbose_name = "품목"
         verbose_name_plural = "품목"
+
+    def clean(self):
+        """운영 개시 후 unit(주문단위) 변경 금지. (TECH_SPEC §6.4 / P3-07.6)
+
+        이 Item 에 연결된 ManagedItem 중 APPROVED StockTransaction 이 1건이라도 있으면
+        단위 변경을 차단한다. (단위 소유권이 ManagedItem→Item 으로 이동하면서 규칙도 이동)
+        """
+        super().clean()
+        if not self.pk:
+            return
+        old_unit = (
+            Item.objects.filter(pk=self.pk).values_list("unit", flat=True).first()
+        )
+        if old_unit is not None and old_unit != self.unit:
+            has_approved = StockTransaction.objects.filter(
+                managed_item__item_id=self.pk,
+                status=TransactionStatus.APPROVED,
+            ).exists()
+            if has_approved:
+                raise ValidationError(
+                    {
+                        "unit": "운영 개시 후에는 단위를 변경할 수 없습니다. "
+                        "(APPROVED 거래 존재 / TECH_SPEC §6.4)"
+                    }
+                )
 
     def save(self, *args, **kwargs):
         if self.name:
@@ -139,7 +167,6 @@ class ManagedItem(models.Model):
         on_delete=models.PROTECT,
         related_name="managed_items",
     )
-    unit = models.CharField(max_length=20, choices=Unit.choices, default=Unit.EA)
     minimum_stock = models.DecimalField(max_digits=12, decimal_places=3, default=0)
     storage_location = models.CharField(max_length=150, blank=True, default="")
     default_supplier = models.ForeignKey(
@@ -165,35 +192,9 @@ class ManagedItem(models.Model):
             ),
         ]
 
-    def clean(self):
-        """운영 개시 후 unit 변경 금지. (TECH_SPEC §6.4)
-
-        해당 ManagedItem 에 APPROVED StockTransaction 이 1건 이상 있으면
-        unit 변경을 차단한다.
-        """
-        super().clean()
-        if not self.pk:
-            return
-        old_unit = (
-            ManagedItem.objects.filter(pk=self.pk)
-            .values_list("unit", flat=True)
-            .first()
-        )
-        if old_unit is not None and old_unit != self.unit:
-            has_approved = StockTransaction.objects.filter(
-                managed_item=self,
-                status=TransactionStatus.APPROVED,
-            ).exists()
-            if has_approved:
-                raise ValidationError(
-                    {
-                        "unit": "운영 개시 후에는 단위를 변경할 수 없습니다. "
-                        "(APPROVED 거래 존재 / TECH_SPEC §6.4)"
-                    }
-                )
-
     def __str__(self):
-        return f"{self.department} / {self.item} ({self.unit})"
+        # 단위는 이제 Item 소유. (P3-07.6)
+        return f"{self.department} / {self.item} ({self.item.get_unit_display()})"
 
 
 # ---------------------------------------------------------------------------

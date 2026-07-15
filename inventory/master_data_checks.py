@@ -208,7 +208,7 @@ def managed_item_rows(result=None):
                 "department": mi.department.name,
                 "item_name": mi.item.name,
                 "specification": mi.item.specification or "",
-                "unit": mi.get_unit_display(),
+                "unit": mi.item.get_unit_display(),
                 "is_active": "활성" if mi.is_active else "사용중지",
                 "current_stock": mi.current_stock if mi.current_stock is not None else Decimal("0"),
                 "minimum_stock": mi.minimum_stock,

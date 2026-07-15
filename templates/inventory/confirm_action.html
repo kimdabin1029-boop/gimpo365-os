@@ -10,7 +10,7 @@
     <dt>거래유형</dt><dd>{{ tx.get_transaction_type_display }}</dd>
     <dt>품목명</dt><dd>{{ tx.managed_item.item.name }}</dd>
     <dt>부서</dt><dd>{{ tx.managed_item.department.name }}</dd>
-    <dt>증감</dt><dd>{% if tx.quantity_delta > 0 %}+{% endif %}{{ tx.quantity_delta|qty }} {{ tx.managed_item.get_unit_display }}</dd>
+    <dt>증감</dt><dd>{% if tx.quantity_delta > 0 %}+{% endif %}{{ tx.quantity_delta|qty }} {{ tx.managed_item.item.get_unit_display }}</dd>
     <dt>상태</dt><dd>{{ tx.get_status_display }}</dd>
     <dt>입력자</dt><dd>{{ tx.created_by.display_name }}</dd>
     {% if tx.expected_quantity is not None %}

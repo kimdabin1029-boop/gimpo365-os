@@ -129,7 +129,7 @@ class ManagedItemChoiceField(forms.ModelChoiceField):
         name = obj.item.name
         spec = (obj.item.specification or "").strip()
         head = f"{name} — {spec}" if spec else name
-        unit = obj.get_unit_display()
+        unit = obj.item.get_unit_display()
         label = f"{head} / {obj.department.name} / {unit}"
         current = getattr(obj, "current_stock", None)
         if current is not None:
@@ -184,7 +184,7 @@ def _set_managed_item_with_stock(form, user):
             "stock": qty(mi.current_stock),
             "min": qty(mi.minimum_stock),
             "loc": mi.storage_location or "-",
-            "unit": mi.get_unit_display(),
+            "unit": mi.item.get_unit_display(),
             "name": mi.item.name,
             "dept": mi.department.name,
             "dept_id": str(mi.department_id),

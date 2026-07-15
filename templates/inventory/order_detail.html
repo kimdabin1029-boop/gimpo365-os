@@ -38,7 +38,7 @@
 <section class="card order-item-card">
   <p class="order-item-head">
     <strong><a href="{% url 'inventory:managed_item_detail' oi.managed_item_id %}">{{ oi.managed_item.item.name }}</a></strong>
-    <span class="muted">／ {{ oi.managed_item.department.name }} ／ {{ oi.managed_item.get_unit_display }}</span>
+    <span class="muted">／ {{ oi.managed_item.department.name }} ／ {{ oi.managed_item.item.get_unit_display }}</span>
   </p>
   {% with ins=oi.stock_transactions.all %}
     {% if ins %}

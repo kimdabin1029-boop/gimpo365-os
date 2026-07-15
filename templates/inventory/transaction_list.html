@@ -40,7 +40,7 @@
       <td>{{ t.get_transaction_type_display }}</td>
       <td class="col-name"><a href="{% url 'inventory:managed_item_detail' t.managed_item_id %}">{{ t.managed_item.item.name }}</a>{% if t.memo %} <span class="memo-icon" title="{{ t.memo }}" aria-label="메모: {{ t.memo }}">📝</span>{% endif %}</td>
       <td class="col-dept">{{ t.managed_item.department.name }}</td>
-      <td class="num">{% if t.quantity_delta > 0 %}+{% endif %}{{ t.quantity_delta|qty }} {{ t.managed_item.get_unit_display }}</td>
+      <td class="num">{% if t.quantity_delta > 0 %}+{% endif %}{{ t.quantity_delta|qty }} {{ t.managed_item.item.get_unit_display }}</td>
       <td>{{ t.get_status_display }}</td>
       <td>{{ t.created_by.display_name }}</td>
       <td>

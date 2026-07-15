@@ -1202,3 +1202,18 @@ StockTransaction Admin에서 add/delete를 허용하지 마라.
 - 현재고는 계산형(APPROVED quantity_delta 합계)이라 거래 삭제만으로 전 품목 0. COMPLETE 출력이 거래 0·현재고 0·기준정보 일치 자동 검증.
 - 공지사항 자동 삭제 안 함. 모델/마이그레이션 변경 없음. 신규 문서 RESET_ALPHA_TRANSACTIONS_SPEC.md. 전체 테스트 통과.
 - 실제 prod/rehearsal 초기화는 미실행(구현·문서화까지). 알파 종료 후 백업·승인하에 별도 실행.
+
+---
+
+## P3-07.6 요약 (Inventory 단위 소유권 정정: ManagedItem.unit → Item.unit)
+
+- 단위(unit)는 부서·보관장소가 아니라 품목에 종속되는 주문·재고관리 단위로 확정. 소유권을 ManagedItem→Item 으로 이동.
+- 3단계 migration: 0006(Item.unit 임시 null 추가) → 0007(ManagedItem.unit → Item.unit 복사, apps.get_model, 충돌 시
+  RuntimeError+rollback) → 0008(ManagedItem.unit 제거 + Item.unit non-null). migration 번호 순차, 데이터 임의 default 없음.
+- 실데이터 감사(gimpo365os_prod, 읽기전용): 1차 A(고아 Item) 2건 → 다빈 승인 하 잘못 입력된 Item#109/#110 삭제 →
+  2차 A/B/D=0 확인 후 구현. 규격/size/package 필드 미추가(규격 다르면 별도 Item).
+- 운영 개시 후 단위 변경 금지 규칙을 Item.clean() 으로 이동(연결 ManagedItem 에 APPROVED 거래 있으면 차단, 부서 무관).
+- 코드/Admin/Form/template/seed/factory 의 unit 참조를 item.unit 으로 전환. item select_related 로 N+1 없음.
+- 거래·현재고·Item/ManagedItem PK 불변. 신규 문서 ITEM_UNIT_MIGRATION_SPEC.md. 전체 테스트 통과.
+- 실제 prod/rehearsal migration 미적용(구현·문서화 + 데이터 정리까지). 적용은 백업·승인 하 별도 진행.
+- ※ 고아 Item 삭제(#109/#110)는 다빈 명시 승인 하에 실제 gimpo365os_prod 에서 수행됨(거래·배정 0건, 스냅샷 기록).
