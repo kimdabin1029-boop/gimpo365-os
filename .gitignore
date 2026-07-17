@@ -32,4 +32,7 @@ Thumbs.db
 *.dump
 *.backup
 *.sql
-*.zipvar/logs/
+*.zip
+
+# 운영 로그
+var/logs/
