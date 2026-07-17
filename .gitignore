@@ -32,4 +32,4 @@ Thumbs.db
 *.dump
 *.backup
 *.sql
-*.zip
+*.zipvar/logs/
