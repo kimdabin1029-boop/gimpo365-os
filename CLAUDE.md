@@ -18,7 +18,7 @@
 
 ## 절대 규칙 (위반 소지가 있으면 즉시 중단하고 보고)
 
-1. **운영 DB 격리** — 운영 DB(`gimpo365_inventory`)에 직접 연결·수정하거나 migration을 적용하지 않는다. 모든 작업은 리허설 DB(`gimpo365os_rehearsal`)에서 한다. 작업 전 `.env`의 `POSTGRES_DB` 값을 반드시 확인한다.
+1. **운영 DB 격리** — 운영 DB(`gimpo365_prod`)에 직접 연결·수정하거나 migration을 적용하지 않는다. 모든 작업은 리허설 DB(`gimpo365os_rehearsal`)에서 한다. 작업 전 `.env`의 `POSTGRES_DB` 값을 반드시 확인한다.
 2. **파괴적 migration 금지** — 컬럼 삭제/rename/type 변경, 테이블 삭제, 기존 테이블에 non-null 필드 추가, 앱 label 변경, 모델의 앱 이동은 생성하지 않는다. additive(새 테이블·nullable 필드·인덱스 추가)만 기본 허용한다.
 3. **Inventory 핵심 보호** — Inventory 핵심 로직과 service 계층을 수정하거나 우회하지 않는다. 대상: 현재고 계산, StockTransaction, 입고/출고/초기재고/실사조정, 주문·부분입고 상태 처리, `reset_operational_data` / `check_inventory_master_data` command.
 4. **구조 고정** — `inventory/` 앱을 물리적으로 이동하지 않는다. `docs/modules/` 아래에는 코드를 만들지 않는다(문서 전용).
